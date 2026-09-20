@@ -52,7 +52,7 @@ def _make_stamp(radius: int, color: tuple[int, int, int], soft: float = 2.0) -> 
     yy, xx = np.mgrid[0 : 2 * r, 0 : 2 * r]
     dist = np.sqrt((xx - r) ** 2 + (yy - r) ** 2) / float(r)
     falloff = np.clip(1.0 - dist, 0.0, 1.0) ** soft
-    alpha = (falloff * 255).astype(np.uint8)
+    alpha = (np.clip(falloff, 0.0, 1.0) * 255).astype(np.uint8)
     rgb = np.zeros((2 * r, 2 * r, 3), dtype=np.uint8)
     rgb[..., 0], rgb[..., 1], rgb[..., 2] = color
     rgba = np.dstack([rgb, alpha])
@@ -66,8 +66,8 @@ def _spawn(rng: random.Random, style: str, width: int, height: int) -> Particle:
             amp_x=rng.uniform(10, 40), amp_y=rng.uniform(8, 30),
             freq_x=rng.uniform(0.5, 2.0), freq_y=rng.uniform(0.5, 2.0),
             phase=rng.uniform(0, 2 * math.pi),
-            size=rng.uniform(1.5, 3.5), alpha=rng.uniform(0.25, 0.6),
-            pulse_freq=rng.uniform(1, 3), pulse_depth=rng.uniform(0.3, 0.7),
+            size=rng.uniform(1.5, 3.5), alpha=rng.uniform(0.65, 0.95),
+            pulse_freq=rng.uniform(1, 3), pulse_depth=rng.uniform(0.15, 0.4),
         )
     if style == "snow":
         return Particle(
@@ -75,7 +75,7 @@ def _spawn(rng: random.Random, style: str, width: int, height: int) -> Particle:
             amp_x=rng.uniform(15, 60), amp_y=0.0,
             freq_x=rng.uniform(0.3, 1.2), freq_y=1.0,
             phase=rng.uniform(0, 2 * math.pi),
-            size=rng.uniform(1.5, 3.5), alpha=rng.uniform(0.4, 0.8),
+            size=rng.uniform(1.8, 4.0), alpha=rng.uniform(0.7, 1.0),
             pulse_freq=rng.uniform(0.3, 1.0), pulse_depth=0.15,
         )
     if style == "sparkle":
@@ -84,7 +84,7 @@ def _spawn(rng: random.Random, style: str, width: int, height: int) -> Particle:
             amp_x=0.0, amp_y=0.0,
             freq_x=1.0, freq_y=1.0,
             phase=rng.uniform(0, 2 * math.pi),
-            size=rng.uniform(1.0, 2.5), alpha=rng.uniform(0.3, 0.9),
+            size=rng.uniform(1.2, 3.0), alpha=rng.uniform(0.6, 1.0),
             pulse_freq=rng.uniform(2, 6), pulse_depth=1.0,
         )
     if style == "fireflies":
@@ -93,8 +93,8 @@ def _spawn(rng: random.Random, style: str, width: int, height: int) -> Particle:
             amp_x=rng.uniform(30, 110), amp_y=rng.uniform(20, 80),
             freq_x=rng.uniform(0.3, 1.0), freq_y=rng.uniform(0.3, 1.0),
             phase=rng.uniform(0, 2 * math.pi),
-            size=rng.uniform(2.5, 5.5), alpha=rng.uniform(0.35, 0.8),
-            pulse_freq=rng.uniform(0.8, 2.5), pulse_depth=rng.uniform(0.5, 1.0),
+            size=rng.uniform(2.5, 5.5), alpha=rng.uniform(0.7, 1.0),
+            pulse_freq=rng.uniform(0.8, 2.5), pulse_depth=rng.uniform(0.3, 0.7),
         )
     if style == "embers":
         return Particle(
@@ -102,7 +102,7 @@ def _spawn(rng: random.Random, style: str, width: int, height: int) -> Particle:
             amp_x=rng.uniform(5, 25), amp_y=0.0,
             freq_x=rng.uniform(1.0, 3.0), freq_y=1.0,
             phase=rng.uniform(0, 2 * math.pi),
-            size=rng.uniform(1.0, 2.5), alpha=rng.uniform(0.4, 0.85),
+            size=rng.uniform(1.2, 3.0), alpha=rng.uniform(0.7, 1.0),
             pulse_freq=rng.uniform(1, 4), pulse_depth=0.4,
         )
     if style == "fog":
@@ -111,7 +111,7 @@ def _spawn(rng: random.Random, style: str, width: int, height: int) -> Particle:
             amp_x=rng.uniform(120, 320), amp_y=rng.uniform(10, 40),
             freq_x=rng.uniform(0.2, 0.6), freq_y=rng.uniform(0.2, 0.5),
             phase=rng.uniform(0, 2 * math.pi),
-            size=rng.uniform(60, 160), alpha=rng.uniform(0.05, 0.16),
+            size=rng.uniform(60, 160), alpha=rng.uniform(0.5, 0.8),
             pulse_freq=rng.uniform(0.2, 0.6), pulse_depth=0.3,
         )
     raise ValueError(f"unknown particle style {style!r}")
@@ -170,7 +170,7 @@ def render_particles(
     for p in particles:
         key = max(1, int(round(p.size)))
         if key not in stamps:
-            stamps[key] = _make_stamp(key, color, soft=1.6 if style in ("sparkle", "embers") else 2.4)
+            stamps[key] = _make_stamp(key, color, soft=1.2 if style in ("sparkle", "embers") else 1.5)
 
     for f in range(frames):
         t_frac = f / float(frames)

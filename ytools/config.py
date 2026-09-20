@@ -46,7 +46,7 @@ DEFAULTS: dict[str, Any] = {
         "particles": {
             "enabled": True,
             "style": "dust",         # dust|snow|sparkle|fireflies|embers|fog
-            "density": 60,           # particles per frame budget
+            "density": 120,          # particles per frame budget
             "loop_seconds": 8.0,
             "opacity": 1.0,
         },

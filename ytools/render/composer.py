@@ -84,7 +84,11 @@ class Composer:
         args += ["-i", inputs.narration]
         ni = 2
         # input 2: particle overlay (infinite loop, has alpha)
-        if opts.particles_enabled and inputs.particles and os.path.isfile(inputs.particles):
+        if opts.particles_enabled:
+            if not inputs.particles or not os.path.isfile(inputs.particles):
+                raise FileNotFoundError(
+                    f"particles enabled but overlay missing: {inputs.particles!r}"
+                )
             args += ["-stream_loop", "-1", "-i", inputs.particles]
             part_idx = ni
             ni += 1

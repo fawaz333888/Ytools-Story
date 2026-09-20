@@ -136,7 +136,7 @@ CELLS: list[dict] = [
             "\n",
             "#@markdown --- **Overlays** ---\n",
             "particle_style = 'dust' #@param ['dust','snow','sparkle','fireflies','embers','fog']\n",
-            "particle_density = 60 #@param {type:'integer'}\n",
+            "particle_density = 120 #@param {type:'integer'}\n",
             "watermark_text = '@YtoolsChannel' #@param {type:'string'}\n",
             "watermark_style = 'badge' #@param ['badge','plain','logo']\n",
             "watermark_position = 'top-right' #@param ['top-left','top-right','bottom-left','bottom-right','center']\n",

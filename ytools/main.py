@@ -66,6 +66,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"footage not found: {footage}")
         return 2
 
+    if args.script and not os.path.isfile(args.script):
+        print(f"script not found: {args.script}")
+        return 2
+
     workdir = args.workdir or os.path.join("ytools_work", "run")
     os.makedirs(workdir, exist_ok=True)
 
@@ -83,7 +87,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         cfg.set("story.add_hook", False)
     pipe.run(
         footage=footage,
-        script_path=args.script if args.script and os.path.isfile(args.script) else None,
+        script_path=args.script,
     )
     return 0
 
@@ -140,7 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--niche", choices=["horror", "motivation", "education", "drama", "custom"])
     p_run.add_argument("--language", choices=["id", "en"], default=None)
     p_run.add_argument("--topic", default=None)
-    p_run.add_argument("--provider", choices=["template", "openai", "anthropic"])
+    p_run.add_argument("--provider", choices=["manual", "openai", "anthropic"])
     p_run.add_argument("--no-hook", action="store_true", help="skip hook line")
     p_run.add_argument("--minutes", type=float, default=None)
     p_run.add_argument("--voice", default=None)

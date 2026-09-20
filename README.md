@@ -13,7 +13,7 @@ Output: `output/video.mp4` (720p, H.264 + AAC, looped to narration length).
 
 ## Pipeline
 
-1. **Story** — offline template pools (gratis, no API key) or LLM (`openai`/`anthropic`). Niche: `horror` / `motivation` / `education` / `drama` / `custom`. Optional retention **hook** prepended.
+1. **Story** — manual script file (default, wajib `--script`) atau LLM (`openai`/`anthropic`). Niche: `horror` / `motivation` / `education` / `drama` / `custom`. Optional retention **hook** prepended.
 2. **TTS** — `edge-tts`, word-level timestamps via `WordBoundary` events. Indonesian: `id-ID-GadisNeural`, `id-ID-ArdiNeural`. English: `en-US-AvaNeural` etc.
 3. **Overlays** (all optional, ≥2 burned in by default):
    - Karaoke **subtitles** (ASS, per-word highlight from TTS word timings)
@@ -38,7 +38,7 @@ Run `colab/Ytools-V1.ipynb` (GPU runtime recommended). All cells validated via `
 
 Notes:
 - Colab free session: ~12h max, idle disconnect ~90 min — save to Drive before stopping.
-- Provider `template` is offline and best for ≤5 min scripts; use LLM for longer.
+- Provider `manual` butuh file `--script`; gunakan LLM untuk skrip panjang.
 - Footage ≥30s recommended; shorter loops get flagged as repetitive content.
 
 ## Layout

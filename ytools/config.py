@@ -10,7 +10,7 @@ import yaml
 
 DEFAULTS: dict[str, Any] = {
     "story": {
-        "provider": "template",      # template | openai | anthropic
+        "provider": "manual",       # manual | openai | anthropic
         "niche": "horror",           # horror | motivation | education | drama | custom
         "topic": "",
         "language": "id",            # id | en
@@ -108,8 +108,8 @@ class Config:
 
     def validate(self) -> list[str]:
         problems: list[str] = []
-        if self.get("story.provider") not in {"template", "openai", "anthropic"}:
-            problems.append("story.provider must be template|openai|anthropic")
+        if self.get("story.provider") not in {"manual", "openai", "anthropic"}:
+            problems.append("story.provider must be manual|openai|anthropic")
         if self.get("story.provider") == "openai" and not os.environ.get(
             self.get("story.api_key_env"), ""
         ):

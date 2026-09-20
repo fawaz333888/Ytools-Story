@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..utils import clean_text
-from . import hook, llm, templates, templates_en
+from . import hook, llm
 
 VALID_NICHES = {"horror", "motivation", "education", "drama", "custom"}
 VALID_LANGS = {"id", "en"}
@@ -18,14 +18,6 @@ LANG_LABEL = {
     "id": "Bahasa Indonesia",
     "en": "English",
 }
-
-
-def _template_pool(niche: str, language: str) -> dict[str, list[str]]:
-    if language == "en":
-        base = templates_en.EN_POOL.get(niche, templates_en.EN_POOL["motivation"])
-        # custom niche: fall back to motivation pool wording
-        return base
-    return templates.POOL.get(niche, templates.POOL["motivation"])
 
 
 def generate(
@@ -45,15 +37,17 @@ def generate(
     if language not in VALID_LANGS:
         raise ValueError(f"unknown language {language!r}; valid: {sorted(VALID_LANGS)}")
 
-    if provider == "template":
-        pool = _template_pool(niche, language)
-        text = templates.assemble(pool, topic=topic, seed=seed, length_hint=minutes)
+    if provider == "manual":
+        raise RuntimeError(
+            "provider=manual butuh script; lewatkan --script <file> "
+            "(atau config story.provider=openai|anthropic)"
+        )
     elif provider == "openai":
         text = llm.generate_openai(niche, topic, minutes, model, api_key_env, language)
     elif provider == "anthropic":
         text = llm.generate_anthropic(niche, topic, minutes, model, api_key_env, language)
     else:
-        raise ValueError(f"unknown provider {provider!r}; valid: template|openai|anthropic")
+        raise ValueError(f"unknown provider {provider!r}; valid: manual|openai|anthropic")
 
     if add_hook:
         hook_line = hook.generate_hook(niche, language, seed=seed)

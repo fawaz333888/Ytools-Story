@@ -38,13 +38,14 @@ def generate_openai(
     model: str,
     api_key_env: str,
     language: str = "id",
+    base_url: str = "",
 ) -> str:
     from openai import OpenAI
 
     key = os.environ.get(api_key_env, "")
     if not key:
         raise RuntimeError(f"env {api_key_env} not set; cannot use openai provider")
-    client = OpenAI(api_key=key)
+    client = OpenAI(api_key=key, base_url=base_url or None)
     resp = client.chat.completions.create(
         model=model,
         messages=[
@@ -63,13 +64,14 @@ def generate_anthropic(
     model: str,
     api_key_env: str,
     language: str = "id",
+    base_url: str = "",
 ) -> str:
     import anthropic
 
     key = os.environ.get(api_key_env, "")
     if not key:
         raise RuntimeError(f"env {api_key_env} not set; cannot use anthropic provider")
-    client = anthropic.Anthropic(api_key=key)
+    client = anthropic.Anthropic(api_key=key, base_url=base_url or None)
     resp = client.messages.create(
         model=model or "claude-3-5-sonnet-20241022",
         max_tokens=4000,

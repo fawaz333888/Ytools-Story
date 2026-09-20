@@ -16,6 +16,7 @@ DEFAULTS: dict[str, Any] = {
         "language": "id",            # id | en
         "length_minutes": 3,
         "model": "gpt-4o-mini",
+        "base_url": "",            # kosong = endpoint resmi; isi untuk OpenAI-compatible
         "api_key_env": "OPENAI_API_KEY",
         "seed": None,
     },

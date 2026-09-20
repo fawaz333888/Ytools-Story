@@ -30,6 +30,8 @@ python -m ytools run --footage v.mp4 --script my_story.txt          # skip gener
 python -m ytools run --footage v.mp4 --provider openai --topic "..." # needs OPENAI_API_KEY
 ```
 
+Provider `openai` juga mendukung endpoint **OpenAI-compatible** (OpenRouter, Groq, vLLM lokal, dll) — set `story.base_url` di config atau `llm_base_url` di notebook Colab. `base_url` kosong = endpoint OpenAI resmi.
+
 ## Colab
 
 Run `colab/Ytools-V1.ipynb` (GPU runtime recommended). All cells validated via `jupyter nbconvert --execute`. Source of the notebook is `colab/build_notebook.py` — regenerate with `python colab/build_notebook.py` after edits.

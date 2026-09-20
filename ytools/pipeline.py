@@ -74,6 +74,7 @@ class Pipeline:
                 language=language,
                 model=self.cfg.get("story.model"),
                 api_key_env=self.cfg.get("story.api_key_env"),
+                base_url=self.cfg.get("story.base_url", "") or "",
                 seed=self.cfg.get("story.seed"),
             )
         a.script_path = os.path.join(self.workdir, "script.txt")

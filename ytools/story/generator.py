@@ -28,6 +28,7 @@ def generate(
     language: str = "id",
     model: str = "gpt-4o-mini",
     api_key_env: str = "OPENAI_API_KEY",
+    base_url: str = "",
     seed: int | str | None = None,
 ) -> str:
     """Generate a narration script in `language`."""
@@ -42,9 +43,9 @@ def generate(
             "(atau config story.provider=openai|anthropic)"
         )
     elif provider == "openai":
-        text = llm.generate_openai(niche, topic, minutes, model, api_key_env, language)
+        text = llm.generate_openai(niche, topic, minutes, model, api_key_env, language, base_url)
     elif provider == "anthropic":
-        text = llm.generate_anthropic(niche, topic, minutes, model, api_key_env, language)
+        text = llm.generate_anthropic(niche, topic, minutes, model, api_key_env, language, base_url)
     else:
         raise ValueError(f"unknown provider {provider!r}; valid: manual|openai|anthropic")
 

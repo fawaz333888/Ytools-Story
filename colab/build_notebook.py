@@ -14,7 +14,7 @@ CELLS: list[dict] = [
     {
         "type": "markdown",
         "source": [
-            "# Ytools-V1 — YouTube Faceless Automation\n",
+            "# Ytools-Story — YouTube Faceless Automation\n",
             "\n",
             "Loop footage + overlay (watermark, particles, karaoke subtitle) + TTS narration.\n",
             "Gratis: edge-tts, template story (no API key). Bilingual ID/EN.\n",
@@ -32,8 +32,8 @@ CELLS: list[dict] = [
             "import os, sys, shutil, subprocess\n",
             "print('python', sys.version.split()[0])\n",
             "\n",
-            "REPO = 'https://github.com/Ampersand53/Ytools-V1.git'\n",
-            "DEST = '/content/Ytools-V1'\n",
+            "REPO = 'https://github.com/fawaz333888/Ytools-Story.git'\n",
+            "DEST = '/content/Ytools-Story'\n",
             "\n",
             "def _have_ytools(path):\n",
             "    return os.path.isfile(os.path.join(path, 'ytools', '__init__.py'))\n",
@@ -258,7 +258,7 @@ def build(cells: list[dict]) -> dict:
         "nbformat_minor": 0,
         "metadata": {
             "colab": {
-                "name": "Ytools-V1.ipynb",
+                "name": "Ytools-Story.ipynb",
                 "provenance": [],
                 "toc_visible": True,
             },
@@ -275,7 +275,7 @@ def build(cells: list[dict]) -> dict:
 
 def main() -> None:
     here = os.path.dirname(os.path.abspath(__file__))
-    out = os.path.join(here, "Ytools-V1.ipynb")
+    out = os.path.join(here, "Ytools-Story.ipynb")
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(build(CELLS), fh, indent=1, ensure_ascii=False)
     print("wrote", out)

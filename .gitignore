@@ -6,4 +6,5 @@ output/
 tmp_*
 .pytest_cache/
 footage.mp4
+/my_video.mp4
 .ipynb_checkpoints/

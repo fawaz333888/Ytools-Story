@@ -1,0 +1,131 @@
+"""Config loading/validation with defaults."""
+
+from __future__ import annotations
+
+import copy
+import os
+from typing import Any
+
+import yaml
+
+DEFAULTS: dict[str, Any] = {
+    "story": {
+        "provider": "template",      # template | openai | anthropic
+        "niche": "horror",           # horror | motivation | education | drama | custom
+        "topic": "",
+        "language": "id",            # id | en
+        "add_hook": True,            # prepend a retention hook line
+        "length_minutes": 3,
+        "model": "gpt-4o-mini",
+        "api_key_env": "OPENAI_API_KEY",
+        "seed": None,
+    },
+    "tts": {
+        "voice": "",                 # "" = auto by story.language
+        "rate": "+0%",
+        "volume": "+0%",
+        "pitch": "+0Hz",
+    },
+    "video": {
+        "width": 1280,
+        "height": 720,
+        "fps": 30,
+        "motion": "slow_drift",      # none | slow_drift | slow_zoom
+        "motion_intensity": 1.0,     # 0..2 multiplier
+    },
+    "overlays": {
+        "watermark": {
+            "enabled": True,
+            "text": "@YtoolsChannel",
+            "style": "badge",        # badge | plain | logo
+            "logo_path": None,       # PNG with alpha, used when style=logo
+            "position": "top-right", # top-left|top-right|bottom-left|bottom-right|center
+            "opacity": 0.85,
+            "font_size": 0,          # 0 = autoscale from height
+        },
+        "particles": {
+            "enabled": True,
+            "style": "dust",         # dust|snow|sparkle|fireflies|embers|fog
+            "density": 60,           # particles per frame budget
+            "loop_seconds": 8.0,
+            "opacity": 1.0,
+        },
+        "subtitle": {
+            "enabled": True,
+            "style": "karaoke",      # karaoke | simple
+            "font": "",              # path to .ttf; "" = autodetect
+            "font_size": 0,          # 0 = autoscale
+            "position": "bottom",    # bottom | center
+            "max_chars": 34,         # wrap width
+            "margin_v": 60,
+        },
+    },
+    "output": {
+        "dir": "output",
+        "encoder": "auto",           # auto | nvenc | x264
+        "crf": 20,
+        "preset": "medium",
+        "audio_bitrate": "192k",
+    },
+}
+
+
+def _deep_merge(base: dict, over: dict) -> dict:
+    for k, v in over.items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            _deep_merge(base[k], v)
+        else:
+            base[k] = v
+    return base
+
+
+class Config:
+    def __init__(self, data: dict | None = None):
+        self.data = copy.deepcopy(DEFAULTS)
+        if data:
+            _deep_merge(self.data, data)
+
+    @classmethod
+    def from_file(cls, path: str) -> "Config":
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = yaml.safe_load(fh) or {}
+        return cls(raw)
+
+    def get(self, dotted: str, default: Any = None) -> Any:
+        node: Any = self.data
+        for part in dotted.split("."):
+            if not isinstance(node, dict) or part not in node:
+                return default
+            node = node[part]
+        return node
+
+    def set(self, dotted: str, value: Any) -> None:
+        node = self.data
+        parts = dotted.split(".")
+        for part in parts[:-1]:
+            node = node.setdefault(part, {})
+        node[parts[-1]] = value
+
+    def validate(self) -> list[str]:
+        problems: list[str] = []
+        if self.get("story.provider") not in {"template", "openai", "anthropic"}:
+            problems.append("story.provider must be template|openai|anthropic")
+        if self.get("story.provider") == "openai" and not os.environ.get(
+            self.get("story.api_key_env"), ""
+        ):
+            problems.append(
+                f"story.provider=openai but env {self.get('story.api_key_env')} is unset"
+            )
+        w, h = self.get("video.width"), self.get("video.height")
+        if not (128 <= w <= 7680) or not (128 <= h <= 4320):
+            problems.append(f"implausible video size {w}x{h}")
+        if self.get("video.fps") not in (24, 25, 30, 48, 50, 60):
+            problems.append(f"video.fps={self.get('video.fps')} unusual (24/30/60 typical)")
+        return problems
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"Config({self.data!r})"
+
+
+def example_config_yaml() -> str:
+    return yaml.safe_dump(DEFAULTS, sort_keys=False, allow_unicode=True)

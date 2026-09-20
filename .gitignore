@@ -1,0 +1,9 @@
+﻿__pycache__/
+*.pyc
+ytools_work/
+output/
+*.mov
+tmp_*
+.pytest_cache/
+footage.mp4
+.ipynb_checkpoints/

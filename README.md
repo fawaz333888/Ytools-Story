@@ -1,0 +1,57 @@
+# Ytools-V1
+
+YouTube faceless automation: loop footage + overlays + TTS narration, bilingual ID/EN, Colab-ready.
+
+## Quick start (local)
+
+```bash
+pip install -r requirements.txt
+python -m ytools run --footage your_video.mp4 --niche horror --language id --minutes 3
+```
+
+Output: `output/video.mp4` (720p, H.264 + AAC, looped to narration length).
+
+## Pipeline
+
+1. **Story** — offline template pools (gratis, no API key) or LLM (`openai`/`anthropic`). Niche: `horror` / `motivation` / `education` / `drama` / `custom`. Optional retention **hook** prepended.
+2. **TTS** — `edge-tts`, word-level timestamps via `WordBoundary` events. Indonesian: `id-ID-GadisNeural`, `id-ID-ArdiNeural`. English: `en-US-AvaNeural` etc.
+3. **Overlays** (all optional, ≥2 burned in by default):
+   - Karaoke **subtitles** (ASS, per-word highlight from TTS word timings)
+   - **Particles** — dust / snow / sparkle / fireflies / embers / fog (seamless loop, alpha video)
+   - **Watermark** — badge / plain / logo, 5 anchor positions
+4. **Compose** — single ffmpeg pass: footage cover-scaled + optional motion crop (slow drift / breathing zoom), overlays burned, original audio **muted**, narration muxed, looped to exact narration duration.
+
+## Commands
+
+```bash
+python -m ytools init                  # write example config
+python -m ytools voices                # list Indonesian edge-tts voices
+python -m ytools hook --niche horror --language id
+python -m ytools run --footage v.mp4 --niche motivation --language en --minutes 5
+python -m ytools run --footage v.mp4 --script my_story.txt          # skip generation
+python -m ytools run --footage v.mp4 --provider openai --topic "..." # needs OPENAI_API_KEY
+```
+
+## Colab
+
+Run `colab/Ytools-V1.ipynb` (GPU runtime recommended). All cells validated via `jupyter nbconvert --execute`. Source of the notebook is `colab/build_notebook.py` — regenerate with `python colab/build_notebook.py` after edits.
+
+Notes:
+- Colab free session: ~12h max, idle disconnect ~90 min — save to Drive before stopping.
+- Provider `template` is offline and best for ≤5 min scripts; use LLM for longer.
+- Footage ≥30s recommended; shorter loops get flagged as repetitive content.
+
+## Layout
+
+```
+ytools/
+  story/    generator, hook pools, ID+EN template pools, LLM wrappers
+  tts/      edge-tts synthesis + word timings (chunked, offset-stitched)
+  overlays/ particles, watermark, karaoke subtitles
+  render/   ffmpeg binary discovery, encoder smoke test, filter-graph composer
+  pipeline.py, main.py (CLI), config.py
+colab/      notebook builder + generated .ipynb
+tests/      fixtures
+```
+
+Requirements: `edge-tts`, `ffmpeg-python`, `imageio-ffmpeg` (bundles a full ffmpeg), `pillow`, `numpy`, `pyyaml`. Optional: `openai`, `anthropic`.

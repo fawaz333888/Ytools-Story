@@ -20,7 +20,7 @@ CELLS: list[dict] = [
             "Bawa script sendiri (wajib) atau pakai LLM (openai/anthropic, butuh API key). Bilingual ID/EN.\n",
             "\n",
             "**Cara pakai:** Run semua cell top-to-bottom (Shift+Enter).\n",
-            "Upload footage di **Cell 3**, atur opsi di **Cell 4**, lalu Run **Cell 5**.\n",
+            "Upload footage di **Cell 4**, atur opsi di **Cell 5**, upload script di **Cell 7**, lalu lihat hasil di **Cell 8-9**.\n",
         ],
     },
     {
@@ -77,7 +77,20 @@ CELLS: list[dict] = [
     {
         "type": "code",
         "source": [
-            "#@title 3. Upload footage video (minimal 30 detik)\n",
+            "#@title 3. Mount Google Drive (sekali, untuk simpan hasil)\n",
+            "from google.colab import drive\n",
+            "drive.mount('/content/drive')\n",
+            "\n",
+            "import os\n",
+            "DRIVE_ROOT = '/content/drive/MyDrive/Ytools-Story'\n",
+            "os.makedirs(DRIVE_ROOT, exist_ok=True)\n",
+            "print('Drive siap:', DRIVE_ROOT)",
+        ],
+    },
+    {
+        "type": "code",
+        "source": [
+            "#@title 4. Upload footage video (minimal 30 detik)\n",
             "from google.colab import files\n",
             "import shutil, os\n",
             "\n",
@@ -101,7 +114,7 @@ CELLS: list[dict] = [
     {
         "type": "code",
         "source": [
-            "#@title 4. Konfigurasi\n",
+            "#@title 5. Konfigurasi\n",
             "#@markdown --- **Story** ---\n",
             "niche = 'horror' #@param ['horror','motivation','education','drama','custom']\n",
             "language = 'id' #@param ['id','en']\n",
@@ -131,7 +144,6 @@ CELLS: list[dict] = [
             "\n",
             "#@markdown --- **Output** ---\n",
             "output_name = 'video.mp4' #@param {type:'string'}\n",
-            "save_to_drive = True #@param {type:'boolean'}\n",
             "\n",
             "#@markdown --- **LLM key (hanya jika provider != manual)** ---\n",
             "os.environ.pop('OPENAI_API_KEY', None)\n",
@@ -162,7 +174,7 @@ CELLS: list[dict] = [
     {
         "type": "code",
         "source": [
-            "#@title 5. Generate hook ideas (opsional, langsung dipakai jika add_hook=True)\n",
+            "#@title 6. Generate hook ideas (opsional, langsung dipakai jika add_hook=True)\n",
             "from ytools.story import hook\n",
             "for i, h in enumerate(hook.generate_hooks(niche, language, count=3), 1):\n",
             "    print(f'{i}. {h}')",
@@ -171,7 +183,7 @@ CELLS: list[dict] = [
     {
         "type": "code",
         "source": [
-            "#@title 6. RUN pipeline (story -> tts -> overlays -> render)\n",
+            "#@title 7. RUN pipeline (story -> tts -> overlays -> render)\n",
             "from ytools.pipeline import Pipeline\n",
             "\n",
             "workdir = '/content/ytools_work/run'\n",
@@ -198,7 +210,7 @@ CELLS: list[dict] = [
     {
         "type": "code",
         "source": [
-            "#@title 7. Preview hasil\n",
+            "#@title 8. Preview hasil\n",
             "from IPython.display import HTML, display\n",
             "from base64 import b64encode\n",
             "\n",
@@ -212,22 +224,32 @@ CELLS: list[dict] = [
     {
         "type": "code",
         "source": [
-            "#@title 8. Download / simpan ke Drive\n",
-            "import shutil\n",
-            "from google.colab import files\n",
+            "#@title 9. Simpan hasil ke Drive\n",
+            "import shutil, json, datetime\n",
             "\n",
-            "final = f'/content/{output_name}'\n",
-            "shutil.copy(art.result.path, final)\n",
-            "files.download(final)\n",
+            "run_dir = os.path.join(DRIVE_ROOT, datetime.date.today().isoformat())\n",
+            "os.makedirs(run_dir, exist_ok=True)\n",
             "\n",
-            "if save_to_drive:\n",
-            "    from google.colab import drive\n",
-            "    drive.mount('/content/drive', quiet=True)\n",
-            "    dest_dir = '/content/drive/MyDrive/Ytools-V1'\n",
-            "    os.makedirs(dest_dir, exist_ok=True)\n",
-            "    shutil.copy(final, os.path.join(dest_dir, output_name))\n",
-            "    shutil.copy(art.script_path, os.path.join(dest_dir, output_name.replace('.mp4', '_script.txt')))\n",
-            "    print('saved to', dest_dir)",
+            "shutil.copy(art.result.path, os.path.join(run_dir, output_name))\n",
+            "shutil.copy(art.script_path, os.path.join(run_dir, output_name.replace('.mp4', '_script.txt')))\n",
+            "\n",
+            "meta = {\n",
+            "    'niche': niche,\n",
+            "    'language': language,\n",
+            "    'provider': provider,\n",
+            "    'length_minutes': length_minutes,\n",
+            "    'add_hook': add_hook,\n",
+            "    'duration': art.duration,\n",
+            "    'footage': FOOTAGE,\n",
+            "    'created': datetime.datetime.now().isoformat(),\n",
+            "}\n",
+            "meta_path = os.path.join(run_dir, output_name.replace('.mp4', '_meta.json'))\n",
+            "with open(meta_path, 'w', encoding='utf-8') as fh:\n",
+            "    json.dump(meta, fh, ensure_ascii=False, indent=2)\n",
+            "\n",
+            "print('saved to', run_dir)\n",
+            "for f in sorted(os.listdir(run_dir)):\n",
+            "    print('  ', f)",
         ],
     },
     {
@@ -235,8 +257,8 @@ CELLS: list[dict] = [
         "source": [
             "## Catatan\n",
             "\n",
-            "- **Session Colab free** maksimal ~12 jam, idle disconnect ~90 menit. Simpan hasil ke Drive (cell 8) sebelum berhenti.\n",
-            "- **Reuse**: cell 6 menggunakan cache — rerun cepat kalau footage/particles/watermark sudah ada.\n",
+            "- **Session Colab free** maksimal ~12 jam, idle disconnect ~90 menit. Hasil otomatis tersimpan ke Drive (cell 9) — aman berhenti kapan saja.\n",
+            "- **Reuse**: cell 7 menggunakan cache — rerun cepat kalau footage/particles/watermark sudah ada.\n",
             "- **Story**: provider `manual` wajib bawa script sendiri. Untuk skrip panjang (>5 menit) gunakan `openai`/`anthropic`.\n",
             "- **Footage < 30 detik** akan terlalu repetitif; YouTube demote konten loop pendek berulang.\n",
         ],

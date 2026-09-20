@@ -13,7 +13,7 @@ Output: `output/video.mp4` (720p, H.264 + AAC, looped to narration length).
 
 ## Pipeline
 
-1. **Story** — manual script file (default, wajib `--script`) atau LLM (`openai`/`anthropic`). Niche: `horror` / `motivation` / `education` / `drama` / `custom`. Optional retention **hook** prepended.
+1. **Story** — manual script file (default, wajib `--script`) atau LLM (`openai`/`anthropic`). Niche: `horror` / `motivation` / `education` / `drama` / `custom`.
 2. **TTS** — `edge-tts`, word-level timestamps via `WordBoundary` events. Indonesian: `id-ID-GadisNeural`, `id-ID-ArdiNeural`. English: `en-US-AvaNeural` etc.
 3. **Overlays** (all optional, ≥2 burned in by default):
    - Karaoke **subtitles** (ASS, per-word highlight from TTS word timings)
@@ -26,8 +26,6 @@ Output: `output/video.mp4` (720p, H.264 + AAC, looped to narration length).
 ```bash
 python -m ytools init                  # write example config
 python -m ytools voices                # list Indonesian edge-tts voices
-python -m ytools hook --niche horror --language id
-python -m ytools run --footage v.mp4 --niche motivation --language en --minutes 5
 python -m ytools run --footage v.mp4 --script my_story.txt          # skip generation
 python -m ytools run --footage v.mp4 --provider openai --topic "..." # needs OPENAI_API_KEY
 ```
@@ -45,7 +43,7 @@ Notes:
 
 ```
 ytools/
-  story/    generator, hook pools, ID+EN template pools, LLM wrappers
+  story/    generator, LLM wrappers
   tts/      edge-tts synthesis + word timings (chunked, offset-stitched)
   overlays/ particles, watermark, karaoke subtitles
   render/   ffmpeg binary discovery, encoder smoke test, filter-graph composer

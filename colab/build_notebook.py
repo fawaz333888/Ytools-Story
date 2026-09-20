@@ -20,7 +20,7 @@ CELLS: list[dict] = [
             "Bawa script sendiri (wajib) atau pakai LLM (openai/anthropic, butuh API key). Bilingual ID/EN.\n",
             "\n",
             "**Cara pakai:** Run semua cell top-to-bottom (Shift+Enter).\n",
-            "Upload footage di **Cell 4**, atur opsi di **Cell 5**, upload script di **Cell 7**, lalu lihat hasil di **Cell 8-9**.\n",
+            "Upload footage di **Cell 4**, atur opsi di **Cell 5**, upload script di **Cell 6**, lalu lihat hasil di **Cell 7-8**.\n",
         ],
     },
     {
@@ -120,8 +120,7 @@ CELLS: list[dict] = [
             "language = 'id' #@param ['id','en']\n",
             "provider = 'manual' #@param ['manual','openai','anthropic']\n",
             "topic = '' #@param {type:'string'}\n",
-            "length_minutes = 3 #@param {type:'number'}\n",
-            "add_hook = True #@param {type:'boolean'}\n",
+            "length_minutes = 3 #@param {type:'number'}  # hanya untuk LLM; manual mengikuti panjang script\n",
             "seed = None #@param {type:'raw'}\n",
             "\n",
             "#@markdown --- **Narration (TTS)** ---\n",
@@ -155,7 +154,7 @@ CELLS: list[dict] = [
             "cfg = Config()\n",
             "cfg.set('story.niche', niche); cfg.set('story.language', language)\n",
             "cfg.set('story.provider', provider); cfg.set('story.topic', topic)\n",
-            "cfg.set('story.length_minutes', length_minutes); cfg.set('story.add_hook', add_hook)\n",
+            "cfg.set('story.length_minutes', length_minutes)\n",
             "cfg.set('story.seed', seed)\n",
             "cfg.set('tts.voice', voice or None); cfg.set('tts.rate', tts_rate)\n",
             "cfg.set('video.width', width); cfg.set('video.height', height)\n",
@@ -174,16 +173,7 @@ CELLS: list[dict] = [
     {
         "type": "code",
         "source": [
-            "#@title 6. Generate hook ideas (opsional, langsung dipakai jika add_hook=True)\n",
-            "from ytools.story import hook\n",
-            "for i, h in enumerate(hook.generate_hooks(niche, language, count=3), 1):\n",
-            "    print(f'{i}. {h}')",
-        ],
-    },
-    {
-        "type": "code",
-        "source": [
-            "#@title 7. RUN pipeline (story -> tts -> overlays -> render)\n",
+            "#@title 6. RUN pipeline (story -> tts -> overlays -> render)\n",
             "from ytools.pipeline import Pipeline\n",
             "\n",
             "workdir = '/content/ytools_work/run'\n",
@@ -210,7 +200,7 @@ CELLS: list[dict] = [
     {
         "type": "code",
         "source": [
-            "#@title 8. Preview hasil\n",
+            "#@title 7. Preview hasil\n",
             "from IPython.display import HTML, display\n",
             "from base64 import b64encode\n",
             "\n",
@@ -224,7 +214,7 @@ CELLS: list[dict] = [
     {
         "type": "code",
         "source": [
-            "#@title 9. Simpan hasil ke Drive\n",
+            "#@title 8. Simpan hasil ke Drive\n",
             "import shutil, json, datetime\n",
             "\n",
             "run_dir = os.path.join(DRIVE_ROOT, datetime.date.today().isoformat())\n",
@@ -238,7 +228,6 @@ CELLS: list[dict] = [
             "    'language': language,\n",
             "    'provider': provider,\n",
             "    'length_minutes': length_minutes,\n",
-            "    'add_hook': add_hook,\n",
             "    'duration': art.duration,\n",
             "    'footage': FOOTAGE,\n",
             "    'created': datetime.datetime.now().isoformat(),\n",
@@ -257,8 +246,8 @@ CELLS: list[dict] = [
         "source": [
             "## Catatan\n",
             "\n",
-            "- **Session Colab free** maksimal ~12 jam, idle disconnect ~90 menit. Hasil otomatis tersimpan ke Drive (cell 9) — aman berhenti kapan saja.\n",
-            "- **Reuse**: cell 7 menggunakan cache — rerun cepat kalau footage/particles/watermark sudah ada.\n",
+            "- **Session Colab free** maksimal ~12 jam, idle disconnect ~90 menit. Hasil otomatis tersimpan ke Drive (cell 8) — aman berhenti kapan saja.\n",
+            "- **Reuse**: cell 6 menggunakan cache — rerun cepat kalau footage/particles/watermark sudah ada.\n",
             "- **Story**: provider `manual` wajib bawa script sendiri. Untuk skrip panjang (>5 menit) gunakan `openai`/`anthropic`.\n",
             "- **Footage < 30 detik** akan terlalu repetitif; YouTube demote konten loop pendek berulang.\n",
         ],

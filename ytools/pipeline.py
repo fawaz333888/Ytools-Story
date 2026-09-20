@@ -75,7 +75,6 @@ class Pipeline:
                 model=self.cfg.get("story.model"),
                 api_key_env=self.cfg.get("story.api_key_env"),
                 seed=self.cfg.get("story.seed"),
-                add_hook=self.cfg.get("story.add_hook", True),
             )
         a.script_path = os.path.join(self.workdir, "script.txt")
         with open(a.script_path, "w", encoding="utf-8") as fh:

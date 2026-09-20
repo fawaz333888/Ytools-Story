@@ -83,22 +83,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 3
 
     pipe = Pipeline(workdir, cfg, ff=ff)
-    if args.no_hook:
-        cfg.set("story.add_hook", False)
     pipe.run(
         footage=footage,
         script_path=args.script,
     )
-    return 0
-
-
-def cmd_hook(args: argparse.Namespace) -> int:
-    from .story import hook as hook_mod
-
-    lines = hook_mod.generate_hooks(args.niche, args.language, count=args.count)
-    print(f"hooks ({args.language}/{args.niche}):")
-    for i, line in enumerate(lines, 1):
-        print(f"  {i}. {line}")
     return 0
 
 
@@ -145,7 +133,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--language", choices=["id", "en"], default=None)
     p_run.add_argument("--topic", default=None)
     p_run.add_argument("--provider", choices=["manual", "openai", "anthropic"])
-    p_run.add_argument("--no-hook", action="store_true", help="skip hook line")
     p_run.add_argument("--minutes", type=float, default=None)
     p_run.add_argument("--voice", default=None)
     p_run.add_argument("--style", default=None, help="particle style")
@@ -155,13 +142,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_voices = sub.add_parser("voices", help="list Indonesian TTS voices")
     p_voices.set_defaults(func=cmd_voices)
-
-    p_hook = sub.add_parser("hook", help="generate hook line ideas")
-    p_hook.add_argument("--niche", default="horror",
-                        choices=["horror", "motivation", "education", "drama", "custom"])
-    p_hook.add_argument("--language", choices=["id", "en"], default="id")
-    p_hook.add_argument("--count", type=int, default=3)
-    p_hook.set_defaults(func=cmd_hook)
     return ap
 
 

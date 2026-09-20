@@ -14,7 +14,6 @@ DEFAULTS: dict[str, Any] = {
         "niche": "horror",           # horror | motivation | education | drama | custom
         "topic": "",
         "language": "id",            # id | en
-        "add_hook": True,            # prepend a retention hook line
         "length_minutes": 3,
         "model": "gpt-4o-mini",
         "api_key_env": "OPENAI_API_KEY",

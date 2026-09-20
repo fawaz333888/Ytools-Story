@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..utils import clean_text
-from . import hook, llm
+from . import llm
 
 VALID_NICHES = {"horror", "motivation", "education", "drama", "custom"}
 VALID_LANGS = {"id", "en"}
@@ -29,9 +29,8 @@ def generate(
     model: str = "gpt-4o-mini",
     api_key_env: str = "OPENAI_API_KEY",
     seed: int | str | None = None,
-    add_hook: bool = True,
 ) -> str:
-    """Generate a narration script in `language`. Prepends a hook when asked."""
+    """Generate a narration script in `language`."""
     if niche not in VALID_NICHES:
         raise ValueError(f"unknown niche {niche!r}; valid: {sorted(VALID_NICHES)}")
     if language not in VALID_LANGS:
@@ -48,10 +47,6 @@ def generate(
         text = llm.generate_anthropic(niche, topic, minutes, model, api_key_env, language)
     else:
         raise ValueError(f"unknown provider {provider!r}; valid: manual|openai|anthropic")
-
-    if add_hook:
-        hook_line = hook.generate_hook(niche, language, seed=seed)
-        text = hook_line + "\n\n" + text
 
     text = clean_text(text)
     if not text:

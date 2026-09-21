@@ -85,4 +85,67 @@ def generate_anthropic(
     return resp.content[0].text.strip()
 
 
-__all__ = ["generate_openai", "generate_anthropic", "NICHE_PROMPTS"]
+def _title_prompt(niche: str, language: str = "id") -> str:
+    lang_name = "Bahasa Indonesia" if language == "id" else "English"
+    return (
+        f"Berikan satu judul YouTube yang menarik dan clickbait-modarat untuk "
+        f"cerita narasi berikut, dalam {lang_name}.\n"
+        "Aturan:\n"
+        "- Maksimal 60 karakter, satu baris saja.\n"
+        "- Judul harus nyambung dan akurat dengan isi cerita (bukan menambah "
+        "detail baru atau kontradiksi).\n"
+        "- Tanpa tanda kutip, tanpa emoji, tanpa kata 'YouTube' atau 'Video'.\n"
+        "- Tidak menyebutkan bahwa ini dibuat oleh AI.\n"
+        "- Balas HANYA judulnya, tanpa kata pengantar.\n"
+    )
+
+
+def generate_title_openai(
+    story: str,
+    niche: str,
+    model: str,
+    api_key_env: str,
+    language: str = "id",
+    base_url: str = "",
+) -> str:
+    from openai import OpenAI
+
+    key = os.environ.get(api_key_env, "")
+    if not key:
+        raise RuntimeError(f"env {api_key_env} not set; cannot use openai provider")
+    client = OpenAI(api_key=key, base_url=base_url or None)
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": _title_prompt(niche, language)},
+            {"role": "user", "content": f"Ceritanya:\n\n{story}\n\nJudulnya:"},
+        ],
+        temperature=0.8,
+    )
+    return (resp.choices[0].message.content or "").strip()
+
+
+def generate_title_anthropic(
+    story: str,
+    niche: str,
+    model: str,
+    api_key_env: str,
+    language: str = "id",
+    base_url: str = "",
+) -> str:
+    import anthropic
+
+    key = os.environ.get(api_key_env, "")
+    if not key:
+        raise RuntimeError(f"env {api_key_env} not set; cannot use anthropic provider")
+    client = anthropic.Anthropic(api_key=key, base_url=base_url or None)
+    resp = client.messages.create(
+        model=model or "claude-3-5-sonnet-20241022",
+        max_tokens=120,
+        system=_title_prompt(niche, language),
+        messages=[{"role": "user", "content": f"Ceritanya:\n\n{story}\n\nJudulnya:"}],
+    )
+    return resp.content[0].text.strip()
+
+
+__all__ = ["generate_openai", "generate_anthropic", "generate_title_openai", "generate_title_anthropic", "NICHE_PROMPTS"]

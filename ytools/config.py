@@ -68,6 +68,13 @@ DEFAULTS: dict[str, Any] = {
             "opacity": 0.9,
             "color": "intensity",    # showspectrum only: intensity|channel|rainbow|...
         },
+        "card": {
+            "enabled": False,
+            "title": "",             # kosong + provider LLM = judul dari LLM
+            "thumbnail_path": None,  # wajib diisi (path image) kalau enabled
+            "opacity": 1.0,
+            "title_size": 0,         # 0 = auto
+        },
     },
     "output": {
         "dir": "output",
@@ -140,6 +147,9 @@ class Config:
                 )
             if self.get("overlays.spectrum.position") not in {"bottom", "center"}:
                 problems.append("overlays.spectrum.position must be bottom|center")
+        if self.get("overlays.card.enabled"):
+            if not self.get("overlays.card.thumbnail_path"):
+                problems.append("overlays.card.enabled but thumbnail_path is missing")
         return problems
 
     def __repr__(self) -> str:  # pragma: no cover

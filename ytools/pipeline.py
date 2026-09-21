@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from .config import Config
+from .overlays import card as card_mod
 from .overlays import particles as particles_mod
 from .overlays import subtitle as subtitle_mod
 from .overlays import watermark as watermark_mod
@@ -24,6 +25,8 @@ class PipelineArtifacts:
     duration: float = 0.0
     particles_path: str = ""
     watermark_path: str = ""
+    card_path: str = ""
+    title: str = ""
     subtitle_path: str = ""
     result: RenderResult | None = None
 
@@ -175,7 +178,53 @@ class Pipeline:
             else:
                 self.stage("watermark cached")
 
-        # 5. subtitles
+        # 5. card (thumbnail + title)
+        if self.cfg.get("overlays.card.enabled"):
+            thumb = self.cfg.get("overlays.card.thumbnail_path")
+            if not thumb or not os.path.isfile(thumb):
+                raise FileNotFoundError(f"card enabled but thumbnail missing: {thumb!r}")
+            title = (self.cfg.get("overlays.card.title") or "").strip()
+            if not title and self.cfg.get("story.provider") != "manual":
+                # LLM title uses the finished story as context so it stays
+                # accurate to the narration
+                self.stage("generating title (LLM)")
+                title = story_gen.generate_title(
+                    provider=self.cfg.get("story.provider"),
+                    story=story,
+                    niche=self.cfg.get("story.niche", "custom"),
+                    language=language,
+                    model=self.cfg.get("story.model"),
+                    api_key_env=self.cfg.get("story.api_key_env"),
+                    base_url=self.cfg.get("story.base_url", "") or "",
+                )
+            a.title = title
+            card_opacity = self.cfg.get("overlays.card.opacity", 1.0)
+            safe_title = (
+                "".join(c if c.isalnum() or c in "-_." else "_" for c in title)[:40]
+                or "notitle"
+            )
+            thumb_tag = os.path.splitext(os.path.basename(thumb))[0][:20]
+            card_name = (
+                f"card_{safe_title}_{W}x{H}_o{card_opacity}_{thumb_tag}.png"
+            )
+            a.card_path = os.path.join(self.workdir, card_name)
+            if not os.path.isfile(a.card_path):
+                self._prune_cache("card_", "", card_name)
+                self.stage(f"rendering card (title={title[:40]!r})")
+                card_mod.render_card(
+                    a.card_path,
+                    title=title,
+                    thumbnail_path=thumb,
+                    width=W,
+                    height=H,
+                    opacity=card_opacity,
+                    title_size=self.cfg.get("overlays.card.title_size", 0),
+                    font_path=self.cfg.get("overlays.card.font", ""),
+                )
+            else:
+                self.stage("card cached")
+
+        # 6. subtitles
         if self.cfg.get("overlays.subtitle.enabled"):
             self.stage("building karaoke subtitles")
             sub_style = self.cfg.get("overlays.subtitle.style", "karaoke")
@@ -194,7 +243,7 @@ class Pipeline:
             with open(a.subtitle_path, "w", encoding="utf-8") as fh:
                 fh.write(ass_text)
 
-        # 6. compose
+        # 7. compose
         self.stage("composing final video")
         composer = Composer(self.ff)
         inputs = RenderInputs(
@@ -202,6 +251,7 @@ class Pipeline:
             narration=a.narration_path,
             particles=a.particles_path,
             watermark=a.watermark_path,
+            card=a.card_path,
             subtitle_ass=a.subtitle_path,
             out_path=self._out_path(),
         )
@@ -229,6 +279,7 @@ class Pipeline:
             spectrum_height=self.cfg.get("overlays.spectrum.height", 0),
             spectrum_opacity=self.cfg.get("overlays.spectrum.opacity", 0.9),
             spectrum_color=self.cfg.get("overlays.spectrum.color", "intensity"),
+            card_enabled=self.cfg.get("overlays.card.enabled", False),
         )
         a.result = composer.render(inputs, opts, a.duration)
         self.stage(

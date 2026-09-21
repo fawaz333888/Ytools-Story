@@ -55,12 +55,43 @@ def generate(
     return text
 
 
+def generate_title(
+    provider: str,
+    story: str,
+    niche: str = "custom",
+    language: str = "id",
+    model: str = "gpt-4o-mini",
+    api_key_env: str = "OPENAI_API_KEY",
+    base_url: str = "",
+) -> str:
+    """Generate a YouTube title for an already-generated story.
+
+    Separate call so the story prompt stays untouched; the story itself is
+    the context, which keeps the title accurate to the narration.
+    """
+    if provider == "openai":
+        title = llm.generate_title_openai(story, niche, model, api_key_env, language, base_url)
+    elif provider == "anthropic":
+        title = llm.generate_title_anthropic(story, niche, model, api_key_env, language, base_url)
+    else:
+        raise ValueError(f"generate_title needs llm provider, got {provider!r}")
+
+    # tolerate models that wrap the title in quotes or add a preamble line
+    title = title.strip().strip('"“”').strip()
+    if "\n" in title:
+        title = title.splitlines()[0].strip().strip('"“”').strip()
+    if len(title) > 90:
+        title = title[:90].rsplit(" ", 1)[0]
+    return title or ""
+
+
 def default_voice(language: str) -> str:
     return DEFAULT_VOICE.get(language, DEFAULT_VOICE["id"])
 
 
 __all__ = [
     "generate",
+    "generate_title",
     "default_voice",
     "VALID_NICHES",
     "VALID_LANGS",

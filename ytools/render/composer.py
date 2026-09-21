@@ -5,7 +5,8 @@ Filter graph (per-frame, single ffmpeg pass):
   footage (looped, muted) -> cover-scale -> optional motion crop -> base
   base + watermark PNG -> base+wm
   base+wm + particle overlay (looped, alpha) -> base+fx
-  base+fx + audio spectrum (cqt/spectrum/waves/vectorscope) -> base+spec
+  base+fx + card (thumbnail + title) -> base+card
+  base+card + audio spectrum (cqt/spectrum/waves/vectorscope) -> base+spec
   base+spec + karaoke ASS (subtitles filter) -> final video
   narration wav -> asplit -> (resample -> AAC) + spectrum visualizer
 
@@ -36,6 +37,7 @@ class RenderInputs:
     narration: str
     particles: str | None = None
     watermark: str | None = None
+    card: str | None = None
     subtitle_ass: str | None = None
     out_path: str = "output.mp4"
 
@@ -66,6 +68,7 @@ class RenderOpts:
     spectrum_height: int = 0          # 0 = auto (20% of height)
     spectrum_opacity: float = 0.9
     spectrum_color: str = "intensity"  # showspectrum only
+    card_enabled: bool = False        # thumbnail + title card overlay
 
 
 @dataclass
@@ -111,9 +114,28 @@ class Composer:
             ni += 1
         else:
             wm_idx = None
+        # input 4: card PNG (thumbnail + title, single frame)
+        if opts.card_enabled:
+            if not inputs.card or not os.path.isfile(inputs.card):
+                raise FileNotFoundError(
+                    f"card enabled but overlay missing: {inputs.card!r}"
+                )
+            args += ["-loop", "1", "-i", inputs.card]
+            card_idx = ni
+            ni += 1
+        else:
+            card_idx = None
 
         # --- video chain -------------------------------------------------
         chain = []
+        # filter-graph labels are handed out in fixed order so the graph is
+        # identical when optional overlays are disabled
+        label_n = 0
+
+        def next_label() -> str:
+            nonlocal label_n
+            label_n += 1
+            return f"[v{label_n}]"
         # cover-fit to target geometry
         chain.append(
             f"scale={W}:{H}:force_original_aspect_ratio=increase,"
@@ -158,10 +180,11 @@ class Composer:
             graph_parts.append(
                 f"[{wm_idx}:v]format=rgba,colorchannelmixer=aa={op}[wm]"
             )
+            lab = next_label()
             graph_parts.append(
-                f"{prev}[wm]overlay={expr}:enable='gte(t,0.5)':format=auto[v1]"
+                f"{prev}[wm]overlay={expr}:enable='gte(t,0.5)':format=auto{lab}"
             )
-            prev = "[v1]"
+            prev = lab
 
         # particle overlay
         if part_idx is not None:
@@ -169,8 +192,16 @@ class Composer:
             graph_parts.append(
                 f"[{part_idx}:v]format=rgba,colorchannelmixer=aa={op}[pt]"
             )
-            graph_parts.append(f"{prev}[pt]overlay=0:0:format=auto[v2]")
-            prev = "[v2]"
+            lab = next_label()
+            graph_parts.append(f"{prev}[pt]overlay=0:0:format=auto{lab}")
+            prev = lab
+
+        # card overlay (thumbnail + title; opacity is baked into the PNG)
+        if card_idx is not None:
+            graph_parts.append(f"[{card_idx}:v]format=rgba[card]")
+            lab = next_label()
+            graph_parts.append(f"{prev}[card]overlay=0:0:format=auto{lab}")
+            prev = lab
 
         # audio spectrum visualizer (drawn under the subtitles)
         if opts.spectrum_enabled:
@@ -211,17 +242,16 @@ class Composer:
             )
             sy = H - Hs if opts.spectrum_position == "bottom" else (H - Hs) // 2
             sx = (W - Ws) // 2
-            graph_parts.append(f"{prev}[specv]overlay={sx}:{sy}:format=auto[v3]")
-            prev = "[v3]"
-            sub_label = "[v4]"
-        else:
-            sub_label = "[v3]"
+            lab = next_label()
+            graph_parts.append(f"{prev}[specv]overlay={sx}:{sy}:format=auto{lab}")
+            prev = lab
 
         # subtitles (karaoke ASS)
         if opts.subtitle_enabled and inputs.subtitle_ass and os.path.isfile(inputs.subtitle_ass):
             ass = inputs.subtitle_ass.replace("\\", "/").replace(":", r"\:")
-            graph_parts.append(f"{prev}subtitles='{ass}'{sub_label}")
-            prev = sub_label
+            lab = next_label()
+            graph_parts.append(f"{prev}subtitles='{ass}'{lab}")
+            prev = lab
 
         # map final video label
         args += ["-filter_complex", ";".join(graph_parts), "-map", prev]

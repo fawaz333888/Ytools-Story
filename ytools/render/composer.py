@@ -224,9 +224,12 @@ class Composer:
             # showspectrum/showcqt emit opaque RGB (no alpha plane): deriving
             # alpha from luma keeps the bars and drops the black background,
             # otherwise the overlay paints a solid box over the footage.
+            # Their background luma is exactly 16, so (lum-16)*2 zeroes the
+            # background while keeping bars bright; a luma floor here tints
+            # the whole band (a translucent veil over the footage).
             if style in ("cqt", "spectrum"):
                 spec += (
-                    ",format=rgba,geq=lum='lum(X,Y)':a='clip(lum(X,Y)*3,0,255)'"
+                    ",format=rgba,geq=lum='lum(X,Y)':a='clip((lum(X,Y)-16)*2,0,255)'"
                 )
             else:
                 spec += ",format=rgba"

@@ -160,7 +160,7 @@ CELLS: list[dict] = [
             "\n",
             "#@markdown --- **Output** ---\n",
             "output_name = 'video.mp4' #@param {type:'string'}\n",
-            "video_bitrate = '6M' #@param {type:'string'}  # turunkan ke 4M kalau file terlalu besar\n",
+            "video_bitrate = '6M' #@param {type:'string'}  # turunkan ke 4M/3M kalau file masih terlalu besar\n",
             "\n",
             "#@markdown --- **LLM key (hanya jika provider != manual)** ---\n",
             "llm_model = 'gpt-4o-mini' #@param {type:'string'}\n",

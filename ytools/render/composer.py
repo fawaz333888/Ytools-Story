@@ -55,6 +55,9 @@ class RenderOpts:
     crf: int = 20
     preset: str = "medium"
     audio_bitrate: str = "192k"
+    video_bitrate: str = "6M"         # target; nvenc vbr needs a finite cap
+    video_maxrate: str = "8M"
+    video_bufsize: str = "12M"
     margin: int = 0
 
 
@@ -176,14 +179,18 @@ class Composer:
         # --- encode ------------------------------------------------------
         enc = self._pick_encoder(opts.encoder)
         if enc == "h264_nvenc":
+            # vbr with -b:v 0 is quality-only and unbounded: particle overlays
+            # are high-entropy, so the rate explodes without an explicit cap.
             args += [
                 "-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr",
-                "-cq", str(opts.crf + 2), "-b:v", "0",
+                "-cq", str(opts.crf + 2), "-b:v", opts.video_bitrate,
+                "-maxrate", opts.video_maxrate, "-bufsize", opts.video_bufsize,
                 "-pix_fmt", "yuv420p",
             ]
         else:
             args += [
                 "-c:v", "libx264", "-preset", opts.preset, "-crf", str(opts.crf),
+                "-maxrate", opts.video_maxrate, "-bufsize", opts.video_bufsize,
                 "-pix_fmt", "yuv420p",
             ]
         args += ["-c:a", "aac", "-b:a", opts.audio_bitrate, "-ac", "2"]

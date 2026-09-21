@@ -66,6 +66,9 @@ DEFAULTS: dict[str, Any] = {
         "crf": 20,
         "preset": "medium",
         "audio_bitrate": "192k",
+        "video_bitrate": "6M",        # target video bitrate; ~135MB per 3 min
+        "video_maxrate": "8M",
+        "video_bufsize": "12M",
     },
 }
 

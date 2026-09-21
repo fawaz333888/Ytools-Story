@@ -112,18 +112,28 @@ class Pipeline:
         # 3. particles
         if not skip_particles and self.cfg.get("overlays.particles.enabled"):
             style = self.cfg.get("overlays.particles.style", "dust")
-            a.particles_path = os.path.join(self.workdir, f"particles_{style}.mov")
+            density = self.cfg.get("overlays.particles.density", 120)
+            part_opacity = self.cfg.get("overlays.particles.opacity", 1.0)
+            loop_seconds = self.cfg.get("overlays.particles.loop_seconds", 8.0)
+            # cache key must include every param that changes the render,
+            # otherwise a density/size tweak silently reuses the stale overlay
+            part_name = (
+                f"particles_{style}_{W}x{H}_{FPS}fps_{loop_seconds}s"
+                f"_n{density}_o{part_opacity}.mov"
+            )
+            a.particles_path = os.path.join(self.workdir, part_name)
             if not os.path.isfile(a.particles_path):
-                self.stage(f"rendering particles ({style})")
+                self._prune_cache("particles_", style, part_name)
+                self.stage(f"rendering particles ({style}, n={density})")
                 particles_mod.render_particles(
                     a.particles_path,
                     style=style,
                     width=W,
                     height=H,
                     fps=FPS,
-                    loop_seconds=self.cfg.get("overlays.particles.loop_seconds", 8.0),
-                    density=self.cfg.get("overlays.particles.density", 60),
-                    opacity=self.cfg.get("overlays.particles.opacity", 1.0),
+                    loop_seconds=loop_seconds,
+                    density=density,
+                    opacity=part_opacity,
                     workdir=os.path.join(self.workdir, "pframes"),
                     ff=self.ff,
                 )
@@ -133,19 +143,29 @@ class Pipeline:
         # 4. watermark
         if self.cfg.get("overlays.watermark.enabled"):
             wm_style = self.cfg.get("overlays.watermark.style", "badge")
-            a.watermark_path = os.path.join(self.workdir, f"watermark_{wm_style}.png")
+            wm_text = self.cfg.get("overlays.watermark.text", "@channel")
+            wm_position = self.cfg.get("overlays.watermark.position", "top-right")
+            wm_opacity = self.cfg.get("overlays.watermark.opacity", 0.85)
+            wm_font_size = self.cfg.get("overlays.watermark.font_size", 0)
+            safe_text = "".join(c if c.isalnum() or c in "-_." else "_" for c in wm_text)[:24]
+            wm_name = (
+                f"watermark_{wm_style}_{safe_text}_{wm_position}"
+                f"_o{wm_opacity}_f{wm_font_size}_{W}x{H}.png"
+            )
+            a.watermark_path = os.path.join(self.workdir, wm_name)
             if not os.path.isfile(a.watermark_path):
+                self._prune_cache("watermark_", wm_style, wm_name)
                 self.stage(f"rendering watermark ({wm_style})")
                 watermark_mod.render_watermark(
                     a.watermark_path,
-                    text=self.cfg.get("overlays.watermark.text", "@channel"),
+                    text=wm_text,
                     style=wm_style,
                     logo_path=self.cfg.get("overlays.watermark.logo_path"),
-                    position=self.cfg.get("overlays.watermark.position", "top-right"),
+                    position=wm_position,
                     width=W,
                     height=H,
-                    opacity=self.cfg.get("overlays.watermark.opacity", 0.85),
-                    font_size=self.cfg.get("overlays.watermark.font_size", 0),
+                    opacity=wm_opacity,
+                    font_size=wm_font_size,
                     font_path=self.cfg.get("overlays.watermark.font", ""),
                 )
             else:
@@ -196,6 +216,9 @@ class Pipeline:
             crf=self.cfg.get("output.crf", 20),
             preset=self.cfg.get("output.preset", "medium"),
             audio_bitrate=self.cfg.get("output.audio_bitrate", "192k"),
+            video_bitrate=self.cfg.get("output.video_bitrate", "6M"),
+            video_maxrate=self.cfg.get("output.video_maxrate", "8M"),
+            video_bufsize=self.cfg.get("output.video_bufsize", "12M"),
         )
         a.result = composer.render(inputs, opts, a.duration)
         self.stage(
@@ -208,6 +231,17 @@ class Pipeline:
         outdir = self.cfg.get("output.dir", "output")
         os.makedirs(outdir, exist_ok=True)
         return os.path.join(outdir, "video.mp4")
+
+    def _prune_cache(self, prefix: str, style: str, current: str) -> None:
+        """Delete stale cached overlays of the same style that no longer match
+        the current parameters, so the workdir does not accumulate old renders
+        (matters on Colab where disk is limited)."""
+        try:
+            for fname in os.listdir(self.workdir):
+                if fname.startswith(f"{prefix}{style}_") and fname != current:
+                    os.remove(os.path.join(self.workdir, fname))
+        except OSError:
+            pass
 
 
 __all__ = ["Pipeline", "PipelineArtifacts"]

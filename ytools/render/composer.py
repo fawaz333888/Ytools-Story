@@ -127,8 +127,9 @@ class Composer:
                 chain.append(f"scale={uw}:{uh}:flags=lanczos,crop={W}:{H}:x='{x}':y='{y}'")
             else:
                 # breathing zoom: crop box shrinks/grows around center
-                w = f"{W}*(1.0+0.13*(1+sin(n/430))/2)"
-                h = f"{H}*(1.0+0.13*(1+sin(n/430))/2)"
+                # (0.25 over ~45s — strong enough to read as motion, not jitter)
+                w = f"{W}*(1.0+0.25*(1+sin(n/215))/2)"
+                h = f"{H}*(1.0+0.25*(1+sin(n/215))/2)"
                 chain.append(
                     f"scale={uw}:{uh}:flags=lanczos,"
                     f"crop=w='{w}':h='{h}':x='(iw-out_w)/2':y='(ih-out_h)/2',"

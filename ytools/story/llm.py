@@ -25,10 +25,13 @@ def _system_prompt(niche: str, topic: str, minutes: int, language: str = "id") -
         "- Tulis dalam paragraf narasi murni (bukan dialog skrip, tidak ada label adegan).\n"
         "- Buka cerita dengan 1-2 kalimat yang membangkitkan rasa penasaran: beri petunjuk "
         "kejutan atau paradoks kecil yang baru terjawab menjelang akhir. Jangan spoil twist-nya.\n"
+        "- Gunakan bahasa Indonesia sehari-hari yang mudah dipahami semua orang, termasuk "
+        "pemirsa awam (seperti ibu rumah tangga): kalimat pendek, kata-kata umum, ungkapan "
+        "yang akrab di telinga. Hindari kata baku, istilah rumit, dan struktur kalimat panjang "
+        "yang berbelit.\n"
         "- Tidak ada kata pembuka seperti 'Halo' atau 'Selamat datang'.\n"
         "- Tidak menyebutkan bahwa ini dibuat oleh AI.\n"
-        "- Gunakan tata bahasa yang alami dan benar untuk bahasa tersebut.\n"
-        "- Akhiri dengan kalimat penutup yang membuat penonton ingin subscribe.\n"
+        "- Gunakan tata bahasa yang alami dan benar untuk bahasa tersebut.\n"        "- Akhiri dengan kalimat penutup yang membuat penonton ingin subscribe.\n"
     )
 
 

@@ -46,7 +46,8 @@ DEFAULTS: dict[str, Any] = {
         "particles": {
             "enabled": True,
             "style": "dust",         # dust|snow|sparkle|fireflies|embers|fog
-            "density": 120,          # particles per frame budget
+            "density": 120,          # jumlah titik per frame
+            "size": 1.0,             # ukuran titik multiplier (1.0 = default; 3.0 = 3x lebih besar)
             "loop_seconds": 8.0,
             "opacity": 1.0,
         },

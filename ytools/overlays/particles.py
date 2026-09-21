@@ -150,6 +150,7 @@ def render_particles(
     loop_seconds: float = 8.0,
     density: int = 60,
     opacity: float = 1.0,
+    size_mult: float = 1.0,
     seed: int | None = None,
     workdir: str | None = None,
     ff: FFRunner | None = None,
@@ -165,6 +166,9 @@ def render_particles(
 
     color = STYLE_COLORS[style]
     particles = [_spawn(rng, style, width, height) for _ in range(int(density))]
+    if size_mult != 1.0:
+        for p in particles:
+            p.size = p.size * size_mult
     stamps = {}
     # group particles by rounded size to limit stamp count
     for p in particles:

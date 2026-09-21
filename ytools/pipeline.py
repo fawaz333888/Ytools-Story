@@ -114,17 +114,18 @@ class Pipeline:
             style = self.cfg.get("overlays.particles.style", "dust")
             density = self.cfg.get("overlays.particles.density", 120)
             part_opacity = self.cfg.get("overlays.particles.opacity", 1.0)
+            part_size = self.cfg.get("overlays.particles.size", 1.0)
             loop_seconds = self.cfg.get("overlays.particles.loop_seconds", 8.0)
             # cache key must include every param that changes the render,
             # otherwise a density/size tweak silently reuses the stale overlay
             part_name = (
                 f"particles_{style}_{W}x{H}_{FPS}fps_{loop_seconds}s"
-                f"_n{density}_o{part_opacity}.mov"
+                f"_n{density}_s{part_size}_o{part_opacity}.mov"
             )
             a.particles_path = os.path.join(self.workdir, part_name)
             if not os.path.isfile(a.particles_path):
                 self._prune_cache("particles_", style, part_name)
-                self.stage(f"rendering particles ({style}, n={density})")
+                self.stage(f"rendering particles ({style}, n={density}, size={part_size})")
                 particles_mod.render_particles(
                     a.particles_path,
                     style=style,
@@ -134,6 +135,7 @@ class Pipeline:
                     loop_seconds=loop_seconds,
                     density=density,
                     opacity=part_opacity,
+                    size_mult=part_size,
                     workdir=os.path.join(self.workdir, "pframes"),
                     ff=self.ff,
                 )
@@ -147,10 +149,12 @@ class Pipeline:
             wm_position = self.cfg.get("overlays.watermark.position", "top-right")
             wm_opacity = self.cfg.get("overlays.watermark.opacity", 0.85)
             wm_font_size = self.cfg.get("overlays.watermark.font_size", 0)
+            wm_logo = self.cfg.get("overlays.watermark.logo_path")
             safe_text = "".join(c if c.isalnum() or c in "-_." else "_" for c in wm_text)[:24]
+            logo_tag = os.path.splitext(os.path.basename(wm_logo or ""))[0][:20] or "nologo"
             wm_name = (
                 f"watermark_{wm_style}_{safe_text}_{wm_position}"
-                f"_o{wm_opacity}_f{wm_font_size}_{W}x{H}.png"
+                f"_o{wm_opacity}_f{wm_font_size}_{logo_tag}_{W}x{H}.png"
             )
             a.watermark_path = os.path.join(self.workdir, wm_name)
             if not os.path.isfile(a.watermark_path):
@@ -160,7 +164,7 @@ class Pipeline:
                     a.watermark_path,
                     text=wm_text,
                     style=wm_style,
-                    logo_path=self.cfg.get("overlays.watermark.logo_path"),
+                    logo_path=wm_logo,
                     position=wm_position,
                     width=W,
                     height=H,

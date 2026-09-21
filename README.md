@@ -19,6 +19,7 @@ Output: `output/video.mp4` (720p, H.264 + AAC, looped to narration length).
    - Karaoke **subtitles** (ASS, per-word highlight from TTS word timings)
    - **Particles** — dust / snow / sparkle / fireflies / embers / fog (seamless loop, alpha video)
    - **Watermark** — badge / plain / logo, 5 anchor positions
+   - **Audio spectrum** — optional visualizer for the narration: `cqt` (bar graph, default) / `spectrum` / `waves` / `vectorscope`, bottom or center
 4. **Compose** — single ffmpeg pass: footage cover-scaled + optional motion crop (slow drift / breathing zoom), overlays burned, original audio **muted**, narration muxed, looped to exact narration duration.
 
 ## Commands

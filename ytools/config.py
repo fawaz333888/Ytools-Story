@@ -60,6 +60,14 @@ DEFAULTS: dict[str, Any] = {
             "max_chars": 34,         # wrap width
             "margin_v": 60,
         },
+        "spectrum": {
+            "enabled": False,
+            "style": "cqt",          # cqt | spectrum | waves | vectorscope
+            "position": "bottom",    # bottom | center
+            "height": 0,             # 0 = auto (20% of video height)
+            "opacity": 0.9,
+            "color": "intensity",    # showspectrum only: intensity|channel|rainbow|...
+        },
     },
     "output": {
         "dir": "output",
@@ -125,6 +133,13 @@ class Config:
             problems.append(f"implausible video size {w}x{h}")
         if self.get("video.fps") not in (24, 25, 30, 48, 50, 60):
             problems.append(f"video.fps={self.get('video.fps')} unusual (24/30/60 typical)")
+        if self.get("overlays.spectrum.enabled"):
+            if self.get("overlays.spectrum.style") not in {"cqt", "spectrum", "waves", "vectorscope"}:
+                problems.append(
+                    "overlays.spectrum.style must be cqt|spectrum|waves|vectorscope"
+                )
+            if self.get("overlays.spectrum.position") not in {"bottom", "center"}:
+                problems.append("overlays.spectrum.position must be bottom|center")
         return problems
 
     def __repr__(self) -> str:  # pragma: no cover

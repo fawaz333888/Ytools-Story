@@ -223,6 +223,12 @@ class Pipeline:
             video_bitrate=self.cfg.get("output.video_bitrate", "6M"),
             video_maxrate=self.cfg.get("output.video_maxrate", "8M"),
             video_bufsize=self.cfg.get("output.video_bufsize", "12M"),
+            spectrum_enabled=self.cfg.get("overlays.spectrum.enabled", False),
+            spectrum_style=self.cfg.get("overlays.spectrum.style", "cqt"),
+            spectrum_position=self.cfg.get("overlays.spectrum.position", "bottom"),
+            spectrum_height=self.cfg.get("overlays.spectrum.height", 0),
+            spectrum_opacity=self.cfg.get("overlays.spectrum.opacity", 0.9),
+            spectrum_color=self.cfg.get("overlays.spectrum.color", "intensity"),
         )
         a.result = composer.render(inputs, opts, a.duration)
         self.stage(

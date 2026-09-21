@@ -5,8 +5,9 @@ Filter graph (per-frame, single ffmpeg pass):
   footage (looped, muted) -> cover-scale -> optional motion crop -> base
   base + watermark PNG -> base+wm
   base+wm + particle overlay (looped, alpha) -> base+fx
-  base+fx + karaoke ASS (subtitles filter) -> final video
-  narration wav -> resample -> AAC
+  base+fx + audio spectrum (cqt/spectrum/waves/vectorscope) -> base+spec
+  base+spec + karaoke ASS (subtitles filter) -> final video
+  narration wav -> asplit -> (resample -> AAC) + spectrum visualizer
 
 Duration is driven by the narration audio (-t); the footage and particle
 inputs use -stream_loop -1 so they wrap for as long as needed.
@@ -59,6 +60,12 @@ class RenderOpts:
     video_maxrate: str = "8M"
     video_bufsize: str = "12M"
     margin: int = 0
+    spectrum_enabled: bool = False
+    spectrum_style: str = "cqt"       # cqt | spectrum | waves | vectorscope
+    spectrum_position: str = "bottom"  # bottom | center
+    spectrum_height: int = 0          # 0 = auto (20% of height)
+    spectrum_opacity: float = 0.9
+    spectrum_color: str = "intensity"  # showspectrum only
 
 
 @dataclass
@@ -165,17 +172,68 @@ class Composer:
             graph_parts.append(f"{prev}[pt]overlay=0:0:format=auto[v2]")
             prev = "[v2]"
 
+        # audio spectrum visualizer (drawn under the subtitles)
+        if opts.spectrum_enabled:
+            Hs = opts.spectrum_height or int(H * 0.2)
+            style = opts.spectrum_style
+            # avectorscope renders a lissajous: square canvas keeps it round
+            Ws = Hs if style == "vectorscope" else W
+            # showspectrum/showcqt take fps=, showwaves/avectorscope take rate=
+            rate = "fps" if style in ("cqt", "spectrum") else "rate"
+            if style == "cqt":
+                spec = f"showcqt=s={Ws}x{Hs}:{rate}={FPS}:axis=0"
+            elif style == "spectrum":
+                spec = f"showspectrum=s={Ws}x{Hs}:{rate}={FPS}:color={opts.spectrum_color}"
+            elif style == "waves":
+                # default point mode is ~invisible in a short strip; the
+                # centered line reads at low heights
+                spec = f"showwaves=s={Ws}x{Hs}:{rate}={FPS}:mode=cline"
+            else:
+                spec = f"avectorscope=s={Ws}x{Hs}:{rate}={FPS}"
+            # showspectrum/showcqt emit opaque RGB (no alpha plane): deriving
+            # alpha from luma keeps the bars and drops the black background,
+            # otherwise the overlay paints a solid box over the footage.
+            if style in ("cqt", "spectrum"):
+                spec += (
+                    ",format=rgba,geq=lum='lum(X,Y)':a='clip(lum(X,Y)*3,0,255)'"
+                )
+            else:
+                spec += ",format=rgba"
+            op = opts.spectrum_opacity
+            graph_parts.append(
+                f"[1:a]asplit=2[araw][spec]"
+            )
+            graph_parts.append(
+                f"[araw]aresample=48000,volume=1.0[aout]"
+            )
+            graph_parts.append(
+                f"[spec]{spec},colorchannelmixer=aa={op}[specv]"
+            )
+            sy = H - Hs if opts.spectrum_position == "bottom" else (H - Hs) // 2
+            sx = (W - Ws) // 2
+            graph_parts.append(f"{prev}[specv]overlay={sx}:{sy}:format=auto[v3]")
+            prev = "[v3]"
+            sub_label = "[v4]"
+        else:
+            sub_label = "[v3]"
+
         # subtitles (karaoke ASS)
         if opts.subtitle_enabled and inputs.subtitle_ass and os.path.isfile(inputs.subtitle_ass):
             ass = inputs.subtitle_ass.replace("\\", "/").replace(":", r"\:")
-            graph_parts.append(f"{prev}subtitles='{ass}'[v3]")
-            prev = "[v3]"
+            graph_parts.append(f"{prev}subtitles='{ass}'{sub_label}")
+            prev = sub_label
 
         # map final video label
         args += ["-filter_complex", ";".join(graph_parts), "-map", prev]
 
         # --- audio chain -------------------------------------------------
-        args += ["-map", "1:a", "-af", "aresample=48000,volume=1.0"]
+        if opts.spectrum_enabled:
+            # -af is illegal for streams fed from filter_complex, so the
+            # resample/volume moves into the graph; the spectrum takes the
+            # other half of the asplit.
+            args += ["-map", "[aout]"]
+        else:
+            args += ["-map", "1:a", "-af", "aresample=48000,volume=1.0"]
 
         # --- encode ------------------------------------------------------
         enc = self._pick_encoder(opts.encoder)

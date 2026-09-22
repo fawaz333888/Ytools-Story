@@ -66,7 +66,6 @@ def render_watermark(
     position: str = "top-right",
     width: int = 1280,
     height: int = 720,
-    opacity: float = 0.85,
     font_size: int = 0,
     font_path: str = "",
     margin: int = 0,
@@ -93,9 +92,6 @@ def render_watermark(
             logo = logo.resize(
                 (int(logo.width * max_h / logo.height), max_h), Image.LANCZOS
             )
-        if opacity < 1.0:
-            alpha = logo.split()[3].point(lambda v: int(v * opacity))
-            logo.putalpha(alpha)
         lw, lh = logo.width, logo.height
         ax = _anchor_x(halign, lw, width, margin)
         ay = _anchor_y(valign, lh, height, margin)
@@ -113,12 +109,11 @@ def render_watermark(
         tw, th = _text_size(draw, text, font)
         ax = _anchor_x(halign, tw, width, margin)
         ay = _anchor_y(valign, th, height, margin)
-        alpha = int(255 * opacity)
         for dx in range(-outline, outline + 1):
             for dy in range(-outline, outline + 1):
                 if dx or dy:
-                    draw.text((ax + dx, ay + dy), text, font=font, fill=(0, 0, 0, alpha))
-        draw.text((ax, ay), text, font=font, fill=(255, 255, 255, alpha))
+                    draw.text((ax + dx, ay + dy), text, font=font, fill=(0, 0, 0, 255))
+        draw.text((ax, ay), text, font=font, fill=(255, 255, 255, 255))
         img.save(out_png)
         return ax, ay, halign, valign
 
@@ -130,21 +125,20 @@ def render_watermark(
     ax = _anchor_x(halign, bw, width, margin)
     ay = _anchor_y(valign, bh, height, margin)
     radius = int(bh * 0.28)
-    box_alpha = int(150 * opacity)
     draw.rounded_rectangle(
         [ax, ay, ax + bw, ay + bh], radius=radius,
-        fill=(15, 15, 20, box_alpha),
-        outline=(255, 255, 255, int(60 * opacity)), width=1,
+        fill=(15, 15, 20, 150),
+        outline=(255, 255, 255, 60), width=1,
     )
     # accent bar
     bar_w = max(3, int(font_size * 0.14))
     draw.rounded_rectangle(
         [ax + pad_x, ay + pad_y, ax + pad_x + bar_w, ay + bh - pad_y],
-        radius=bar_w // 2, fill=(255, 60, 60, int(255 * opacity)),
+        radius=bar_w // 2, fill=(255, 60, 60, 255),
     )
     draw.text(
         (ax + pad_x + bar_w + int(font_size * 0.28), ay + pad_y - int(font_size * 0.06)),
-        text, font=font, fill=(255, 255, 255, int(255 * opacity)),
+        text, font=font, fill=(255, 255, 255, 255),
     )
     img.save(out_png)
     return ax, ay, halign, valign

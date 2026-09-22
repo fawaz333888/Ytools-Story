@@ -151,14 +151,15 @@ class Pipeline:
             wm_style = self.cfg.get("overlays.watermark.style", "badge")
             wm_text = self.cfg.get("overlays.watermark.text", "@channel")
             wm_position = self.cfg.get("overlays.watermark.position", "top-right")
-            wm_opacity = self.cfg.get("overlays.watermark.opacity", 0.85)
             wm_font_size = self.cfg.get("overlays.watermark.font_size", 0)
             wm_logo = self.cfg.get("overlays.watermark.logo_path")
             safe_text = "".join(c if c.isalnum() or c in "-_." else "_" for c in wm_text)[:24]
             logo_tag = os.path.splitext(os.path.basename(wm_logo or ""))[0][:20] or "nologo"
+            # opacity is applied by the composer (colorchannelmixer), not baked
+            # into the PNG, so changing it reuses this cache without a re-render
             wm_name = (
                 f"watermark_{wm_style}_{safe_text}_{wm_position}"
-                f"_o{wm_opacity}_f{wm_font_size}_{logo_tag}_{W}x{H}.png"
+                f"_f{wm_font_size}_{logo_tag}_{W}x{H}.png"
             )
             a.watermark_path = os.path.join(self.workdir, wm_name)
             if not os.path.isfile(a.watermark_path):
@@ -172,7 +173,6 @@ class Pipeline:
                     position=wm_position,
                     width=W,
                     height=H,
-                    opacity=wm_opacity,
                     font_size=wm_font_size,
                     font_path=self.cfg.get("overlays.watermark.font", ""),
                 )

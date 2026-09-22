@@ -66,7 +66,7 @@ DEFAULTS: dict[str, Any] = {
             "position": "bottom",    # bottom | center
             "height": 0,             # 0 = auto (20% of video height)
             "opacity": 0.9,
-            "color": "intensity",    # showspectrum only: intensity|channel|rainbow|...
+            "palette": "white",      # white | green | amber | cyan
         },
         "card": {
             "enabled": False,
@@ -147,6 +147,8 @@ class Config:
                 )
             if self.get("overlays.spectrum.position") not in {"bottom", "center"}:
                 problems.append("overlays.spectrum.position must be bottom|center")
+            if self.get("overlays.spectrum.palette") not in {"white", "green", "amber", "cyan"}:
+                problems.append("overlays.spectrum.palette must be white|green|amber|cyan")
         return problems
 
     def __repr__(self) -> str:  # pragma: no cover

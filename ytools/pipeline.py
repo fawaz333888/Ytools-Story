@@ -278,7 +278,7 @@ class Pipeline:
             spectrum_position=self.cfg.get("overlays.spectrum.position", "bottom"),
             spectrum_height=self.cfg.get("overlays.spectrum.height", 0),
             spectrum_opacity=self.cfg.get("overlays.spectrum.opacity", 0.9),
-            spectrum_color=self.cfg.get("overlays.spectrum.color", "intensity"),
+            spectrum_palette=self.cfg.get("overlays.spectrum.palette", "white"),
             card_enabled=self.cfg.get("overlays.card.enabled", False),
         )
         a.result = composer.render(inputs, opts, a.duration)

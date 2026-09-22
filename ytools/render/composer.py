@@ -30,6 +30,28 @@ POSITION_EXPR = {
     "center": "x=(W-w)/2:y=(H-h)/2",
 }
 
+# Audio spectrum palettes. "color" is the showwaves colors= name; "mix" is a
+# colorchannelmixer matrix that remaps RGB (alpha untouched) for the other
+# styles. Weights follow Rec.601 luma so white = grayscale of the bars.
+_PALETTES = {
+    "white": {
+        "color": "white",
+        "mix": "rr=0.299:rg=0.587:rb=0.114:gr=0.299:gg=0.587:gb=0.114:br=0.299:bg=0.587:bb=0.114",
+    },
+    "green": {
+        "color": "green",
+        "mix": "rr=0:rg=0:rb=0:gr=0.299:gg=0.587:gb=0.114:br=0:bg=0:bb=0",
+    },
+    "amber": {
+        "color": "orange",
+        "mix": "rr=0.299:rg=0.587:rb=0.114:gr=0.18:gg=0.35:gb=0.07:br=0:bg=0:bb=0",
+    },
+    "cyan": {
+        "color": "cyan",
+        "mix": "rr=0:rg=0:rb=0:gr=0.299:gg=0.587:gb=0.114:br=0.299:bg=0.587:bb=0.114",
+    },
+}
+
 
 @dataclass
 class RenderInputs:
@@ -69,6 +91,7 @@ class RenderOpts:
     spectrum_opacity: float = 0.9
     spectrum_color: str = "intensity"  # showspectrum only
     card_enabled: bool = False        # thumbnail + title card overlay
+    spectrum_palette: str = "white"   # white | green | amber | cyan
 
 
 @dataclass
@@ -207,6 +230,9 @@ class Composer:
         if opts.spectrum_enabled:
             Hs = opts.spectrum_height or int(H * 0.2)
             style = opts.spectrum_style
+            palette = opts.spectrum_palette or "white"
+            if palette not in _PALETTES:
+                palette = "white"
             # avectorscope renders a lissajous: square canvas keeps it round
             Ws = Hs if style == "vectorscope" else W
             # showspectrum/showcqt take fps=, showwaves/avectorscope take rate=
@@ -214,11 +240,12 @@ class Composer:
             if style == "cqt":
                 spec = f"showcqt=s={Ws}x{Hs}:{rate}={FPS}:axis=0"
             elif style == "spectrum":
-                spec = f"showspectrum=s={Ws}x{Hs}:{rate}={FPS}:color={opts.spectrum_color}"
+                spec = f"showspectrum=s={Ws}x{Hs}:{rate}={FPS}"
             elif style == "waves":
                 # default point mode is ~invisible in a short strip; the
-                # centered line reads at low heights
-                spec = f"showwaves=s={Ws}x{Hs}:{rate}={FPS}:mode=cline"
+                # centered line reads at low heights. colors= sets the
+                # palette natively (full brightness).
+                spec = f"showwaves=s={Ws}x{Hs}:{rate}={FPS}:mode=cline:colors={_PALETTES[palette]['color']}"
             else:
                 spec = f"avectorscope=s={Ws}x{Hs}:{rate}={FPS}"
             # showspectrum/showcqt emit opaque RGB (no alpha plane): deriving
@@ -233,6 +260,8 @@ class Composer:
                 )
             else:
                 spec += ",format=rgba"
+            # remap RGB to the palette via channel weights; alpha untouched
+            mix = _PALETTES[palette]["mix"]
             op = opts.spectrum_opacity
             graph_parts.append(
                 f"[1:a]asplit=2[araw][spec]"
@@ -241,7 +270,7 @@ class Composer:
                 f"[araw]aresample=48000,volume=1.0[aout]"
             )
             graph_parts.append(
-                f"[spec]{spec},colorchannelmixer=aa={op}[specv]"
+                f"[spec]{spec},colorchannelmixer={mix}:aa={op}[specv]"
             )
             sy = H - Hs if opts.spectrum_position == "bottom" else (H - Hs) // 2
             sx = (W - Ws) // 2

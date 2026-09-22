@@ -89,23 +89,18 @@ def render_card(
     )
 
     if title.strip():
-        size = title_size or max(24, int(height * 0.05))
+        size = title_size or max(20, int(height * 0.038))
         font = _load_font(find_font(override=font_path), size)
-        # keep the title clear of the thumbnail (left) and the channel
-        # watermark badge (right)
-        max_w = width - 2 * (thumb_w + margin)
+        # left-aligned right of the thumbnail; right edge stays within 3/4
+        # of the width so the title never runs into the channel watermark
+        tx = margin + thumb_w + margin
+        max_w = (width * 3 // 4) - tx
         lines = _wrap(draw, title, font, max_w)[:2]
         line_h = size
         total_h = line_h * len(lines)
         ty = margin + max(0, (thumb_h - total_h) // 2)
         for line in lines:
-            lw, _ = _text_size(draw, line, font)
-            tx = (width - lw) // 2
-            outline = 3
-            for dx in range(-outline, outline + 1):
-                for dy in range(-outline, outline + 1):
-                    if dx or dy:
-                        draw.text((tx + dx, ty + dy), line, font=font, fill=(0, 0, 0, alpha))
+            # no outline: plain white like the thumbnail border
             draw.text((tx, ty), line, font=font, fill=(255, 255, 255, alpha))
             ty += line_h
 

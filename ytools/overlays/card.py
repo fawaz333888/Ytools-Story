@@ -38,7 +38,7 @@ def _round_corners(img: Image.Image, radius: int) -> Image.Image:
     return out
 
 
-def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> list[str]:
+def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_width: int, min_lines: int = 1) -> list[str]:
     words = text.split()
     lines: list[str] = []
     cur = ""
@@ -51,6 +51,21 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> list[st
             cur = w
     if cur:
         lines.append(cur)
+
+    # force at least min_lines: split a single line at the word boundary nearest
+    # its horizontal midpoint so both halves stay balanced (not flat 1-liner)
+    while len(lines) < min_lines and len(lines[-1].split()) >= 2:
+        ws = lines[-1].split()
+        # pick the split k that minimizes |left width - right width|
+        best = min(
+            range(1, len(ws)),
+            key=lambda k: abs(
+                _text_size(draw, " ".join(ws[:k]), font)[0]
+                - _text_size(draw, " ".join(ws[k:]), font)[0]
+            ),
+        )
+        lines[-1:] = [" ".join(ws[:best]), " ".join(ws[best:])]
+
     return lines
 
 
@@ -95,7 +110,7 @@ def render_card(
         # of the width so the title never runs into the channel watermark
         tx = margin + thumb_w + margin
         max_w = (width * 3 // 4) - tx
-        lines = _wrap(draw, title, font, max_w)[:2]
+        lines = _wrap(draw, title, font, max_w, min_lines=2)[:2]
         line_h = size
         total_h = line_h * len(lines)
         ty = margin + max(0, (thumb_h - total_h) // 2)

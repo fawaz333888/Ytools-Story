@@ -120,10 +120,12 @@ class Pipeline:
             part_size = self.cfg.get("overlays.particles.size", 1.0)
             loop_seconds = self.cfg.get("overlays.particles.loop_seconds", 8.0)
             # cache key must include every param that changes the render,
-            # otherwise a density/size tweak silently reuses the stale overlay
+            # otherwise a density/size tweak silently reuses the stale overlay.
+            # opacity is applied by the composer (colorchannelmixer), not baked
+            # into the mov, so changing it reuses this cache without a re-render
             part_name = (
                 f"particles_{style}_{W}x{H}_{FPS}fps_{loop_seconds}s"
-                f"_n{density}_s{part_size}_o{part_opacity}.mov"
+                f"_n{density}_s{part_size}.mov"
             )
             a.particles_path = os.path.join(self.workdir, part_name)
             if not os.path.isfile(a.particles_path):
@@ -137,7 +139,6 @@ class Pipeline:
                     fps=FPS,
                     loop_seconds=loop_seconds,
                     density=density,
-                    opacity=part_opacity,
                     size_mult=part_size,
                     workdir=os.path.join(self.workdir, "pframes"),
                     ff=self.ff,

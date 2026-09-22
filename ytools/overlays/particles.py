@@ -149,7 +149,6 @@ def render_particles(
     fps: int = 30,
     loop_seconds: float = 8.0,
     density: int = 60,
-    opacity: float = 1.0,
     size_mult: float = 1.0,
     seed: int | None = None,
     workdir: str | None = None,
@@ -185,7 +184,7 @@ def render_particles(
             pulse = 1.0 - p.pulse_depth + p.pulse_depth * (
                 0.5 + 0.5 * math.sin(2 * math.pi * p.pulse_freq * t_frac + p.phase)
             )
-            a = int(clamp(p.alpha * pulse * opacity, 0.0, 1.0) * 255)
+            a = int(clamp(p.alpha * pulse, 0.0, 1.0) * 255)
             if a <= 1:
                 continue
             stamp = stamps[max(1, int(round(p.size)))]

@@ -140,6 +140,9 @@ class Config:
             problems.append(f"implausible video size {w}x{h}")
         if self.get("video.fps") not in (24, 25, 30, 48, 50, 60):
             problems.append(f"video.fps={self.get('video.fps')} unusual (24/30/60 typical)")
+        mi = self.get("video.motion_intensity")
+        if not isinstance(mi, (int, float)) or not (0 <= float(mi) <= 3):
+            problems.append(f"video.motion_intensity={mi} must be a number in 0..3")
         if self.get("overlays.spectrum.enabled"):
             if self.get("overlays.spectrum.style") not in {"cqt", "spectrum", "waves", "vectorscope"}:
                 problems.append(

@@ -261,6 +261,7 @@ class Pipeline:
             height=H,
             fps=FPS,
             motion=self.cfg.get("video.motion", "slow_drift"),
+            motion_intensity=self.cfg.get("video.motion_intensity", 1.0),
             watermark_position=self.cfg.get("overlays.watermark.position", "top-right"),
             watermark_opacity=self.cfg.get("overlays.watermark.opacity", 0.85),
             particles_opacity=self.cfg.get("overlays.particles.opacity", 1.0),

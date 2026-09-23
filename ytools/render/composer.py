@@ -70,6 +70,7 @@ class RenderOpts:
     height: int = 720
     fps: int = 30
     motion: str = "slow_drift"      # none | slow_drift | slow_zoom
+    motion_intensity: float = 1.0   # 0..3 multiplier on pan range + speed
     watermark_position: str = "top-right"
     watermark_opacity: float = 0.85
     particles_opacity: float = 1.0
@@ -168,20 +169,28 @@ class Composer:
         chain.append(f"fps={FPS},format=yuv420p,setsar=1")
 
         if opts.motion in ("slow_drift", "slow_zoom"):
-            # upscale 15%, then animate the crop box with frame counter 'n'
-            up = 1.15
-            uw, uh = int(W * up), int(H * up)
+            # intensity scales both the pan range and the oscillation speed;
+            # 1.0 reproduces the classic slow drift, 2.0 = twice as fast and
+            # wider. Clamp >0: the period divides by it.
+            k = max(0.05, min(opts.motion_intensity, 3.0) if opts.motion_intensity else 1.0)
             drift = opts.motion == "slow_drift"
-            # slow sinusoidal periods (~16s and ~20s at 30fps)
             if drift:
-                x = f"(iw-{W})*(0.5+0.5*sin(n/290))"
-                y = f"(ih-{H})*(0.5+0.5*cos(n/360))"
+                up = 1.0 + 0.15 * k
+                uw, uh = int(W * up), int(H * up)
+                # sinusoidal periods scale inversely with intensity
+                px = max(30, round(290 / k))
+                py = max(30, round(360 / k))
+                x = f"(iw-{W})*(0.5+0.5*sin(n/{px}))"
+                y = f"(ih-{H})*(0.5+0.5*cos(n/{py}))"
                 chain.append(f"scale={uw}:{uh}:flags=lanczos,crop={W}:{H}:x='{x}':y='{y}'")
             else:
                 # breathing zoom: crop box shrinks/grows around center
-                # (0.25 over ~45s — strong enough to read as motion, not jitter)
-                w = f"{W}*(1.0+0.25*(1+sin(n/215))/2)"
-                h = f"{H}*(1.0+0.25*(1+sin(n/215))/2)"
+                up = 1.0 + 0.15 * k
+                uw, uh = int(W * up), int(H * up)
+                amp = round(0.25 * k, 3)
+                per = max(30, round(215 / k))
+                w = f"{W}*(1.0+{amp}*(1+sin(n/{per}))/2)"
+                h = f"{H}*(1.0+{amp}*(1+sin(n/{per}))/2)"
                 chain.append(
                     f"scale={uw}:{uh}:flags=lanczos,"
                     f"crop=w='{w}':h='{h}':x='(iw-out_w)/2':y='(ih-out_h)/2',"
@@ -251,15 +260,21 @@ class Composer:
             # showspectrum/showcqt emit opaque RGB (no alpha plane): deriving
             # alpha from luma keeps the bars and drops the black background,
             # otherwise the overlay paints a solid box over the footage.
-            # Their background luma is exactly 16, so (lum-16)*2 zeroes the
-            # background while keeping bars bright; a luma floor here tints
-            # the whole band (a translucent veil over the footage).
+            # Their background luma is exactly 16, so (lum-16)*4 zeroes the
+            # background while making bars solid. Forcing r=g=b=255 makes the
+            # bars pure white (a lum= expr leaves chroma planes untouched and
+            # tints the result). waves/avectorscope already carry an alpha
+            # channel encoding the signal, so their mask reuses alpha(X,Y).
             if style in ("cqt", "spectrum"):
                 spec += (
-                    ",format=rgba,geq=lum='lum(X,Y)':a='clip((lum(X,Y)-16)*2,0,255)'"
+                    ",format=rgba,"
+                    "geq=r='255':g='255':b='255':a='clip((r(X,Y)-16)*4,0,255)'"
                 )
             else:
-                spec += ",format=rgba"
+                spec += (
+                    ",format=rgba,"
+                    "geq=r='255':g='255':b='255':a='clip(alpha(X,Y)*4,0,255)'"
+                )
             # remap RGB to the palette via channel weights; alpha untouched
             mix = _PALETTES[palette]["mix"]
             op = opts.spectrum_opacity

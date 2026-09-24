@@ -75,6 +75,15 @@ DEFAULTS: dict[str, Any] = {
             "opacity": 1.0,
             "title_size": 0,         # 0 = auto
         },
+        "subscribe": {
+            "enabled": False,
+            "text": "SUBSCRIBE",     # teks pill
+            "appear": 3.0,           # detik muncul (bounce-in)
+            "sway_px": 6,            # amplitudo goyangan vertikal
+            "sway_period": 2.5,      # detik per siklus goyangan
+            "gap": 10,               # jarak ke bawah watermark (px)
+            "font_size": 0,          # 0 = autoscale dari height
+        },
     },
     "output": {
         "dir": "output",
@@ -152,6 +161,19 @@ class Config:
                 problems.append("overlays.spectrum.position must be bottom|center")
             if self.get("overlays.spectrum.palette") not in {"white", "green", "amber", "cyan"}:
                 problems.append("overlays.spectrum.palette must be white|green|amber|cyan")
+        if self.get("overlays.subscribe.enabled"):
+            sub_text = self.get("overlays.subscribe.text", "")
+            if not isinstance(sub_text, str) or not sub_text.strip():
+                problems.append("overlays.subscribe.text must be a non-empty string")
+            ap = self.get("overlays.subscribe.appear", 3.0)
+            if not isinstance(ap, (int, float)) or float(ap) < 0:
+                problems.append(f"overlays.subscribe.appear={ap} must be a number >= 0")
+            sp = self.get("overlays.subscribe.sway_period", 2.5)
+            if not isinstance(sp, (int, float)) or float(sp) <= 0:
+                problems.append(f"overlays.subscribe.sway_period={sp} must be > 0")
+            sw = self.get("overlays.subscribe.sway_px", 6)
+            if not isinstance(sw, (int, float)) or float(sw) < 0:
+                problems.append(f"overlays.subscribe.sway_px={sw} must be >= 0")
         return problems
 
     def __repr__(self) -> str:  # pragma: no cover

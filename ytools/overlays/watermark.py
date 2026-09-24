@@ -69,11 +69,14 @@ def render_watermark(
     font_size: int = 0,
     font_path: str = "",
     margin: int = 0,
-) -> tuple[int, int, str, str]:
+    save: bool = True,
+) -> tuple[int, int, int, int, str, str]:
     """Render watermark into a full-frame transparent PNG.
 
-    Returns (anchor_x, anchor_y, halign, valign) so the composer can place it
-    deterministically regardless of badge size.
+    Returns (anchor_x, anchor_y, w, h, halign, valign) — content size included
+    so overlays stacked relative to the watermark (e.g. the subscribe pill)
+    can be placed without re-deriving the badge geometry. save=False recomputes
+    the geometry only (used on cache hits).
     """
     if position not in POSITIONS:
         raise ValueError(f"unknown position {position!r}; valid: {sorted(POSITIONS)}")
@@ -96,8 +99,9 @@ def render_watermark(
         ax = _anchor_x(halign, lw, width, margin)
         ay = _anchor_y(valign, lh, height, margin)
         img.paste(logo, (ax, ay), logo)
-        img.save(out_png)
-        return ax, ay, halign, valign
+        if save:
+            img.save(out_png)
+        return ax, ay, lw, lh, halign, valign
 
     if not font_size:
         font_size = max(18, int(height * 0.034))
@@ -114,8 +118,9 @@ def render_watermark(
                 if dx or dy:
                     draw.text((ax + dx, ay + dy), text, font=font, fill=(0, 0, 0, 255))
         draw.text((ax, ay), text, font=font, fill=(255, 255, 255, 255))
-        img.save(out_png)
-        return ax, ay, halign, valign
+        if save:
+            img.save(out_png)
+        return ax, ay, tw, th, halign, valign
 
     # badge: rounded translucent box + accent bar + text
     pad_x, pad_y = int(font_size * 0.55), int(font_size * 0.32)
@@ -140,8 +145,9 @@ def render_watermark(
         (ax + pad_x + bar_w + int(font_size * 0.28), ay + pad_y - int(font_size * 0.06)),
         text, font=font, fill=(255, 255, 255, 255),
     )
-    img.save(out_png)
-    return ax, ay, halign, valign
+    if save:
+        img.save(out_png)
+    return ax, ay, bw, bh, halign, valign
 
 
 def _anchor_x(halign: str, w: int, width: int, margin: int) -> int:
@@ -160,4 +166,4 @@ def _anchor_y(valign: str, h: int, height: int, margin: int) -> int:
     return (height - h) // 2
 
 
-__all__ = ["render_watermark", "find_font", "POSITIONS"]
+__all__ = ["render_watermark", "find_font", "POSITIONS", "_load_font", "_text_size"]

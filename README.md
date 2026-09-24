@@ -21,6 +21,7 @@ Output: `output/video.mp4` (720p, H.264 + AAC, looped to narration length).
    - **Watermark** — badge / plain / logo, 5 anchor positions
    - **Audio spectrum** — optional visualizer for the narration: `cqt` (bar graph, default) / `spectrum` / `waves` / `vectorscope`, bottom or center, 4 palettes (white/green/amber/cyan)
    - **Card** — optional thumbnail (top-left) + title (top). Judul: manual, atau LLM-generated dari cerita yang sudah dibuat (provider LLM).
+   - **Subscribe** — optional pill merah animasi di bawah watermark: bounce-in di `t=3s` + sway vertikal 6px sampai akhir.
 4. **Compose** — single ffmpeg pass: footage cover-scaled + optional motion crop (slow drift / breathing zoom), overlays burned, original audio **muted**, narration muxed, looped to exact narration duration.
 
 ## Commands

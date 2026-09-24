@@ -5,8 +5,9 @@ Filter graph (per-frame, single ffmpeg pass):
   footage (looped, muted) -> cover-scale -> optional motion crop -> base
   base + watermark PNG -> base+wm
   base+wm + particle overlay (looped, alpha) -> base+fx
-  base+fx + card (thumbnail + title) -> base+card
-  base+card + audio spectrum (cqt/spectrum/waves/vectorscope) -> base+spec
+   base+fx + card (thumbnail + title) -> base+card
+   base+card + subscribe pill (bounce-in + sway) -> base+sub
+   base+sub + audio spectrum (cqt/spectrum/waves/vectorscope) -> base+spec
   base+spec + karaoke ASS (subtitles filter) -> final video
   narration wav -> asplit -> (resample -> AAC) + spectrum visualizer
 
@@ -60,6 +61,7 @@ class RenderInputs:
     particles: str | None = None
     watermark: str | None = None
     card: str | None = None
+    subscribe: str | None = None
     subtitle_ass: str | None = None
     out_path: str = "output.mp4"
 
@@ -93,6 +95,14 @@ class RenderOpts:
     spectrum_color: str = "intensity"  # showspectrum only
     card_enabled: bool = False        # thumbnail + title card overlay
     spectrum_palette: str = "white"   # white | green | amber | cyan
+    subscribe_enabled: bool = False   # animated subscribe pill under watermark
+    subscribe_appear: float = 3.0     # seconds in (bounce-in trigger)
+    subscribe_sway_px: int = 6        # vertical sway amplitude
+    subscribe_sway_period: float = 2.5  # seconds per sway cycle
+    subscribe_gap: int = 10           # px below the watermark badge
+    subscribe_size: tuple[int, int] | None = None  # tight-crop pill (w, h)
+    watermark_geometry: tuple[int, int, int, int, str, str] | None = None
+    # (ax, ay, w, h, halign, valign) from render_watermark; None = fallback
 
 
 @dataclass
@@ -149,6 +159,17 @@ class Composer:
             ni += 1
         else:
             card_idx = None
+        # input 5: subscribe pill PNG (single frame, tight-cropped)
+        if opts.subscribe_enabled:
+            if not inputs.subscribe or not os.path.isfile(inputs.subscribe):
+                raise FileNotFoundError(
+                    f"subscribe enabled but pill missing: {inputs.subscribe!r}"
+                )
+            args += ["-loop", "1", "-i", inputs.subscribe]
+            sub_idx = ni
+            ni += 1
+        else:
+            sub_idx = None
 
         # --- video chain -------------------------------------------------
         chain = []
@@ -233,6 +254,27 @@ class Composer:
             graph_parts.append(f"[{card_idx}:v]format=rgba[card]")
             lab = next_label()
             graph_parts.append(f"{prev}[card]overlay=0:0:format=auto{lab}")
+            prev = lab
+
+        # subscribe pill: bounce-in at t=appear, then vertical sway until end.
+        # Bounce is a damped cosine from +bounce_px (below rest); sway runs
+        # forever. enable= gates the whole overlay so t<appear is pixel-clean.
+        if sub_idx is not None:
+            if not opts.subscribe_size:
+                raise ValueError("subscribe_enabled requires subscribe_size (w, h)")
+            graph_parts.append(f"[{sub_idx}:v]format=rgba[sub]")
+            sw, _sh = opts.subscribe_size
+            sx, sy = self._subscribe_pos(opts, sw)
+            A = opts.subscribe_appear
+            bounce = 16  # px below rest at t=A, decays in ~2s
+            y_expr = (
+                f"{sy}+{bounce}*exp(-4*(t-{A}))*cos(2*PI*(t-{A})/0.5)"
+                f"+{opts.subscribe_sway_px}*sin(2*PI*t/{opts.subscribe_sway_period})"
+            )
+            lab = next_label()
+            graph_parts.append(
+                f"{prev}[sub]overlay={sx}:y='{y_expr}':enable='gte(t,{A})':format=auto{lab}"
+            )
             prev = lab
 
         # audio spectrum visualizer (drawn under the subtitles)
@@ -334,6 +376,17 @@ class Composer:
         args += ["-r", str(FPS)]
         args += [inputs.out_path]
         return args
+
+    @staticmethod
+    def _subscribe_pos(opts: "RenderOpts", sub_w: int) -> tuple[int, int]:
+        """Pill anchor (x, y0): centered under a top watermark, else top-right."""
+        W, H = opts.width, opts.height
+        margin = opts.margin or max(16, int(H * 0.025))
+        wg = opts.watermark_geometry
+        if wg and len(wg) >= 6 and wg[5] == "top":
+            ax, ay, wm_w, wm_h = wg[0], wg[1], wg[2], wg[3]
+            return ax + (wm_w - sub_w) // 2, ay + wm_h + opts.subscribe_gap
+        return W - sub_w - margin, margin
 
     def _pick_encoder(self, choice: str) -> str:
         if choice == "nvenc":

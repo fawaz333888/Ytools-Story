@@ -9,6 +9,7 @@ from typing import Callable
 from .config import Config
 from .overlays import card as card_mod
 from .overlays import particles as particles_mod
+from .overlays import subscribe as subscribe_mod
 from .overlays import subtitle as subtitle_mod
 from .overlays import watermark as watermark_mod
 from .render.composer import Composer, RenderInputs, RenderOpts, RenderResult
@@ -25,7 +26,10 @@ class PipelineArtifacts:
     duration: float = 0.0
     particles_path: str = ""
     watermark_path: str = ""
+    watermark_geometry: tuple[int, int, int, int, str, str] | None = None
     card_path: str = ""
+    subscribe_path: str = ""
+    subscribe_size: tuple[int, int] | None = None
     title: str = ""
     subtitle_path: str = ""
     result: RenderResult | None = None
@@ -165,7 +169,7 @@ class Pipeline:
             if not os.path.isfile(a.watermark_path):
                 self._prune_cache("watermark_", wm_style, wm_name)
                 self.stage(f"rendering watermark ({wm_style})")
-                watermark_mod.render_watermark(
+                a.watermark_geometry = watermark_mod.render_watermark(
                     a.watermark_path,
                     text=wm_text,
                     style=wm_style,
@@ -178,6 +182,42 @@ class Pipeline:
                 )
             else:
                 self.stage("watermark cached")
+                # geometry recomputed without writing (cache hit): the composer
+                # needs the badge box to stack the subscribe pill under it
+                a.watermark_geometry = watermark_mod.render_watermark(
+                    a.watermark_path,
+                    text=wm_text,
+                    style=wm_style,
+                    logo_path=wm_logo,
+                    position=wm_position,
+                    width=W,
+                    height=H,
+                    font_size=wm_font_size,
+                    font_path=self.cfg.get("overlays.watermark.font", ""),
+                    save=False,
+                )
+
+        # 4b. subscribe pill (animated by the composer, baked PNG is static)
+        if self.cfg.get("overlays.subscribe.enabled"):
+            sub_text = self.cfg.get("overlays.subscribe.text", "SUBSCRIBE") or "SUBSCRIBE"
+            sub_font_size = self.cfg.get("overlays.subscribe.font_size", 0)
+            safe_sub = "".join(c if c.isalnum() or c in "-_." else "_" for c in sub_text)[:24]
+            sub_name = f"subscribe_{safe_sub}_{W}x{H}_f{sub_font_size}.png"
+            a.subscribe_path = os.path.join(self.workdir, sub_name)
+            if not os.path.isfile(a.subscribe_path):
+                self._prune_cache("subscribe_", "", sub_name)
+                self.stage(f"rendering subscribe pill ({sub_text!r})")
+                a.subscribe_size = subscribe_mod.render_subscribe(
+                    a.subscribe_path,
+                    text=sub_text,
+                    width=W,
+                    height=H,
+                    font_size=sub_font_size,
+                    font_path=self.cfg.get("overlays.subscribe.font", ""),
+                )
+            else:
+                self.stage("subscribe cached")
+                a.subscribe_size = subscribe_mod.subscribe_size(a.subscribe_path)
 
         # 5. card (thumbnail + title)
         if self.cfg.get("overlays.card.enabled"):
@@ -253,6 +293,7 @@ class Pipeline:
             particles=a.particles_path,
             watermark=a.watermark_path,
             card=a.card_path,
+            subscribe=a.subscribe_path,
             subtitle_ass=a.subtitle_path,
             out_path=self._out_path(),
         )
@@ -282,6 +323,13 @@ class Pipeline:
             spectrum_opacity=self.cfg.get("overlays.spectrum.opacity", 0.9),
             spectrum_palette=self.cfg.get("overlays.spectrum.palette", "white"),
             card_enabled=self.cfg.get("overlays.card.enabled", False),
+            subscribe_enabled=self.cfg.get("overlays.subscribe.enabled", False),
+            subscribe_appear=self.cfg.get("overlays.subscribe.appear", 3.0),
+            subscribe_sway_px=self.cfg.get("overlays.subscribe.sway_px", 6),
+            subscribe_sway_period=self.cfg.get("overlays.subscribe.sway_period", 2.5),
+            subscribe_gap=self.cfg.get("overlays.subscribe.gap", 10),
+            subscribe_size=a.subscribe_size,
+            watermark_geometry=a.watermark_geometry,
         )
         a.result = composer.render(inputs, opts, a.duration)
         self.stage(

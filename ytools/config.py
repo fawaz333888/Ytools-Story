@@ -81,7 +81,7 @@ DEFAULTS: dict[str, Any] = {
             "appear": 3.0,           # detik muncul (bounce-in)
             "sway_px": 6,            # amplitudo goyangan vertikal
             "sway_period": 2.5,      # detik per siklus goyangan
-            "gap": 10,               # jarak ke bawah watermark (px)
+            "gap": 20,               # jarak ke bawah watermark (px)
             "font_size": 0,          # 0 = autoscale dari height
         },
     },

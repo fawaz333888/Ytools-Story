@@ -129,7 +129,7 @@ class Pipeline:
             # into the mov, so changing it reuses this cache without a re-render
             part_name = (
                 f"particles_{style}_{W}x{H}_{FPS}fps_{loop_seconds}s"
-                f"_n{density}_s{part_size}.mov"
+                f"_n{density}_s{part_size}_v2.mov"
             )
             a.particles_path = os.path.join(self.workdir, part_name)
             if not os.path.isfile(a.particles_path):

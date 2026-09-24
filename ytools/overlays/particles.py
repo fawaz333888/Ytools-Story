@@ -59,24 +59,30 @@ def _make_stamp(radius: int, color: tuple[int, int, int], soft: float = 2.0) -> 
     return Image.fromarray(rgba, "RGBA")
 
 
+def _ifreq(rng: random.Random, lo: int, hi: int) -> float:
+    """Integer cycles per loop. Non-integer freqs break the loop seam: sin at
+    t=1 only returns to sin at t=0 when the frequency is a whole cycle."""
+    return float(rng.randint(lo, hi))
+
+
 def _spawn(rng: random.Random, style: str, width: int, height: int) -> Particle:
     if style == "dust":
         return Particle(
             bx=rng.random(), by=rng.random(),
             amp_x=rng.uniform(10, 40), amp_y=rng.uniform(8, 30),
-            freq_x=rng.uniform(0.5, 2.0), freq_y=rng.uniform(0.5, 2.0),
+            freq_x=_ifreq(rng, 1, 2), freq_y=_ifreq(rng, 1, 2),
             phase=rng.uniform(0, 2 * math.pi),
             size=rng.uniform(1.5, 3.5), alpha=rng.uniform(0.65, 0.95),
-            pulse_freq=rng.uniform(1, 3), pulse_depth=rng.uniform(0.15, 0.4),
+            pulse_freq=_ifreq(rng, 1, 3), pulse_depth=rng.uniform(0.15, 0.4),
         )
     if style == "snow":
         return Particle(
             bx=rng.random(), by=rng.random(),
             amp_x=rng.uniform(15, 60), amp_y=0.0,
-            freq_x=rng.uniform(0.3, 1.2), freq_y=1.0,
+            freq_x=_ifreq(rng, 1, 2), freq_y=1.0,
             phase=rng.uniform(0, 2 * math.pi),
             size=rng.uniform(1.8, 4.0), alpha=rng.uniform(0.7, 1.0),
-            pulse_freq=rng.uniform(0.3, 1.0), pulse_depth=0.15,
+            pulse_freq=_ifreq(rng, 1, 1), pulse_depth=0.15,
         )
     if style == "sparkle":
         return Particle(
@@ -85,34 +91,34 @@ def _spawn(rng: random.Random, style: str, width: int, height: int) -> Particle:
             freq_x=1.0, freq_y=1.0,
             phase=rng.uniform(0, 2 * math.pi),
             size=rng.uniform(1.2, 3.0), alpha=rng.uniform(0.6, 1.0),
-            pulse_freq=rng.uniform(2, 6), pulse_depth=1.0,
+            pulse_freq=_ifreq(rng, 2, 6), pulse_depth=1.0,
         )
     if style == "fireflies":
         return Particle(
             bx=rng.random(), by=rng.random(),
             amp_x=rng.uniform(30, 110), amp_y=rng.uniform(20, 80),
-            freq_x=rng.uniform(0.3, 1.0), freq_y=rng.uniform(0.3, 1.0),
+            freq_x=_ifreq(rng, 1, 2), freq_y=_ifreq(rng, 1, 2),
             phase=rng.uniform(0, 2 * math.pi),
             size=rng.uniform(2.5, 5.5), alpha=rng.uniform(0.7, 1.0),
-            pulse_freq=rng.uniform(0.8, 2.5), pulse_depth=rng.uniform(0.3, 0.7),
+            pulse_freq=_ifreq(rng, 1, 2), pulse_depth=rng.uniform(0.3, 0.7),
         )
     if style == "embers":
         return Particle(
             bx=rng.uniform(0.15, 0.85), by=rng.uniform(0.3, 1.0),
             amp_x=rng.uniform(5, 25), amp_y=0.0,
-            freq_x=rng.uniform(1.0, 3.0), freq_y=1.0,
+            freq_x=_ifreq(rng, 1, 3), freq_y=1.0,
             phase=rng.uniform(0, 2 * math.pi),
             size=rng.uniform(1.2, 3.0), alpha=rng.uniform(0.7, 1.0),
-            pulse_freq=rng.uniform(1, 4), pulse_depth=0.4,
+            pulse_freq=_ifreq(rng, 1, 4), pulse_depth=0.4,
         )
     if style == "fog":
         return Particle(
             bx=rng.random(), by=rng.uniform(0.35, 1.0),
             amp_x=rng.uniform(120, 320), amp_y=rng.uniform(10, 40),
-            freq_x=rng.uniform(0.2, 0.6), freq_y=rng.uniform(0.2, 0.5),
+            freq_x=_ifreq(rng, 1, 1), freq_y=_ifreq(rng, 1, 1),
             phase=rng.uniform(0, 2 * math.pi),
             size=rng.uniform(60, 160), alpha=rng.uniform(0.5, 0.8),
-            pulse_freq=rng.uniform(0.2, 0.6), pulse_depth=0.3,
+            pulse_freq=_ifreq(rng, 1, 1), pulse_depth=0.3,
         )
     raise ValueError(f"unknown particle style {style!r}")
 
@@ -129,12 +135,12 @@ def _position(p: Particle, t_frac: float, width: int, height: int) -> tuple[floa
 def _drift(style: str, p: Particle, t_frac: float, width: int, height: int) -> tuple[float, float]:
     """Global directional drift (wrap-around) for snow/embers."""
     if style in ("snow",):
-        speed = height * 0.9  # full-height fall over one loop
+        speed = height * 1.0  # full-height fall per loop keeps the wrap exact
         y = (p.by * height + speed * t_frac) % height
         x = p.bx * width + math.sin(2 * math.pi * p.freq_x * t_frac + p.phase) * p.amp_x
         return x, y
     if style == "embers":
-        speed = height * 1.4
+        speed = height * 1.0  # full-height rise per loop keeps the wrap exact
         y = (p.by * height - speed * t_frac) % height
         x = p.bx * width + math.sin(2 * math.pi * p.freq_x * t_frac + p.phase) * p.amp_x
         return x, y

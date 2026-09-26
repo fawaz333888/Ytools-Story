@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import math
+
 from ..utils import clean_text
 from . import llm
 
 VALID_NICHES = {"horror", "motivation", "education", "drama", "custom"}
 VALID_LANGS = {"id", "en"}
+
+# Above this, a single LLM call risks upstream 502 (output too long), so the
+# story is split into an outline + per-section calls.
+LONG_MODE_THRESHOLD = 8
+DEFAULT_SECTION_MINUTES = 5
+WORDS_PER_MINUTE = 130
+TAIL_WORDS = 500
+MIN_TOTAL_FRACTION = 0.6
 
 # Default edge-tts voice per language when none is configured.
 DEFAULT_VOICE = {
@@ -30,29 +40,110 @@ def generate(
     api_key_env: str = "OPENAI_API_KEY",
     base_url: str = "",
     seed: int | str | None = None,
+    section_minutes: int = 0,
 ) -> str:
     """Generate a narration script in `language`."""
     if niche not in VALID_NICHES:
         raise ValueError(f"unknown niche {niche!r}; valid: {sorted(VALID_NICHES)}")
     if language not in VALID_LANGS:
         raise ValueError(f"unknown language {language!r}; valid: {sorted(VALID_LANGS)}")
+    if minutes <= 0:
+        raise ValueError(f"minutes must be > 0, got {minutes}")
 
     if provider == "manual":
         raise RuntimeError(
             "provider=manual butuh script; lewatkan --script <file> "
             "(atau config story.provider=openai|anthropic)"
         )
-    elif provider == "openai":
-        text = llm.generate_openai(niche, topic, minutes, model, api_key_env, language, base_url)
-    elif provider == "anthropic":
-        text = llm.generate_anthropic(niche, topic, minutes, model, api_key_env, language, base_url)
+    elif provider in ("openai", "anthropic"):
+        if minutes > LONG_MODE_THRESHOLD:
+            text = _generate_long(
+                provider, niche, topic, minutes, language, model, api_key_env,
+                base_url, seed, section_minutes or DEFAULT_SECTION_MINUTES,
+            )
+        else:
+            text = _call_single(
+                provider, niche, topic, minutes, language, model, api_key_env, base_url, seed
+            )
     else:
         raise ValueError(f"unknown provider {provider!r}; valid: manual|openai|anthropic")
 
     text = clean_text(text)
     if not text:
         raise RuntimeError("story generation produced empty text")
+    target_words = minutes * WORDS_PER_MINUTE
+    if len(text.split()) < MIN_TOTAL_FRACTION * target_words:
+        raise RuntimeError(
+            f"story terlalu pendek: {len(text.split())} kata dari target ~{target_words}. "
+            "Turunkan length_minutes atau ganti model yang lebih capable."
+        )
     return text
+
+
+def _call_single(
+    provider: str,
+    niche: str,
+    topic: str,
+    minutes: int,
+    language: str,
+    model: str,
+    api_key_env: str,
+    base_url: str,
+    seed: int | str | None,
+) -> str:
+    if provider == "openai":
+        return llm.generate_openai(niche, topic, minutes, model, api_key_env, language, base_url, seed=seed)
+    return llm.generate_anthropic(niche, topic, minutes, model, api_key_env, language, base_url)
+
+
+def _generate_long(
+    provider: str,
+    niche: str,
+    topic: str,
+    minutes: int,
+    language: str,
+    model: str,
+    api_key_env: str,
+    base_url: str,
+    seed: int | str | None,
+    section_minutes: int,
+) -> str:
+    n_sections = max(2, math.ceil(minutes / max(1, section_minutes)))
+    words_per_section = minutes * WORDS_PER_MINUTE / float(n_sections)
+    section_seed = seed if isinstance(seed, int) else None
+
+    if provider == "openai":
+        headings = llm.generate_outline_openai(
+            niche, topic, n_sections, words_per_section, model, api_key_env,
+            language, base_url, seed=section_seed,
+        )
+    else:
+        headings = llm.generate_outline_anthropic(
+            niche, topic, n_sections, words_per_section, model, api_key_env,
+            language, base_url,
+        )
+
+    parts: list[str] = []
+    for i, heading in enumerate(headings):
+        tail = " ".join(parts[-1].split()[-TAIL_WORDS:]) if parts else ""
+        if provider == "openai":
+            section = llm.generate_section_openai(
+                i, n_sections, heading, tail, words_per_section, niche, topic,
+                model, api_key_env, language, base_url, seed=section_seed,
+            )
+        else:
+            section = llm.generate_section_anthropic(
+                i, n_sections, heading, tail, words_per_section, niche, topic,
+                model, api_key_env, language, base_url,
+            )
+        section = clean_text(section)
+        if not section:
+            raise RuntimeError(
+                f"section {i + 1}/{n_sections} kosong; story gagal di bagian ini"
+            )
+        parts.append(section)
+
+    return "\n\n".join(parts)
 
 
 def generate_title(

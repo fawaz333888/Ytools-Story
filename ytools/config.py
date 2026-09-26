@@ -15,6 +15,7 @@ DEFAULTS: dict[str, Any] = {
         "topic": "",
         "language": "id",            # id | en
         "length_minutes": 3,
+        "section_minutes": 5,   # ukuran bagian untuk story > 8 menit (outline mode)
         "model": "gpt-4o-mini",
         "base_url": "",            # kosong = endpoint resmi; isi untuk OpenAI-compatible
         "api_key_env": "OPENAI_API_KEY",
@@ -149,6 +150,12 @@ class Config:
             problems.append(f"implausible video size {w}x{h}")
         if self.get("video.fps") not in (24, 25, 30, 48, 50, 60):
             problems.append(f"video.fps={self.get('video.fps')} unusual (24/30/60 typical)")
+        lm = self.get("story.length_minutes")
+        if not isinstance(lm, (int, float)) or not (1 <= float(lm) <= 90):
+            problems.append(f"story.length_minutes={lm} must be a number in 1..90")
+        sm = self.get("story.section_minutes")
+        if not isinstance(sm, (int, float)) or not (2 <= float(sm) <= 15):
+            problems.append(f"story.section_minutes={sm} must be a number in 2..15")
         mi = self.get("video.motion_intensity")
         if not isinstance(mi, (int, float)) or not (0 <= float(mi) <= 3):
             problems.append(f"video.motion_intensity={mi} must be a number in 0..3")

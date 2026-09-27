@@ -319,7 +319,7 @@ def generate_section_openai(
         niche, topic, 0, model, api_key_env, language, base_url,
         system_prompt=_section_prompt(niche, language, perspective),
         user_prompt=user,
-        max_tokens=int(target_words * 1.6) + 250,
+        max_tokens=int(target_words * 2.0) + 400,
         seed=seed,
     )
 
@@ -371,7 +371,7 @@ def generate_section_anthropic(
         niche, topic, 0, model, api_key_env, language, base_url,
         system_prompt=_section_prompt(niche, language, perspective),
         user_prompt=user,
-        max_tokens=int(target_words * 1.6) + 250,
+        max_tokens=int(target_words * 2.0) + 400,
     )
 
 

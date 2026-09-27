@@ -41,6 +41,7 @@ def generate(
     base_url: str = "",
     seed: int | str | None = None,
     section_minutes: int = 0,
+    perspective: str = "",
 ) -> str:
     """Generate a narration script in `language`."""
     if niche not in VALID_NICHES:
@@ -59,11 +60,12 @@ def generate(
         if minutes > LONG_MODE_THRESHOLD:
             text = _generate_long(
                 provider, niche, topic, minutes, language, model, api_key_env,
-                base_url, seed, section_minutes or DEFAULT_SECTION_MINUTES,
+                base_url, seed, section_minutes or DEFAULT_SECTION_MINUTES, perspective,
             )
         else:
             text = _call_single(
-                provider, niche, topic, minutes, language, model, api_key_env, base_url, seed
+                provider, niche, topic, minutes, language, model, api_key_env, base_url, seed,
+                perspective,
             )
     else:
         raise ValueError(f"unknown provider {provider!r}; valid: manual|openai|anthropic")
@@ -90,10 +92,11 @@ def _call_single(
     api_key_env: str,
     base_url: str,
     seed: int | str | None,
+    perspective: str = "",
 ) -> str:
     if provider == "openai":
-        return llm.generate_openai(niche, topic, minutes, model, api_key_env, language, base_url, seed=seed)
-    return llm.generate_anthropic(niche, topic, minutes, model, api_key_env, language, base_url)
+        return llm.generate_openai(niche, topic, minutes, model, api_key_env, language, base_url, seed=seed, perspective=perspective)
+    return llm.generate_anthropic(niche, topic, minutes, model, api_key_env, language, base_url, perspective=perspective)
 
 
 def _generate_long(
@@ -107,6 +110,7 @@ def _generate_long(
     base_url: str,
     seed: int | str | None,
     section_minutes: int,
+    perspective: str = "",
 ) -> str:
     n_sections = max(2, math.ceil(minutes / max(1, section_minutes)))
     words_per_section = minutes * WORDS_PER_MINUTE / float(n_sections)
@@ -115,12 +119,12 @@ def _generate_long(
     if provider == "openai":
         headings = llm.generate_outline_openai(
             niche, topic, n_sections, words_per_section, model, api_key_env,
-            language, base_url, seed=section_seed,
+            language, base_url, seed=section_seed, perspective=perspective,
         )
     else:
         headings = llm.generate_outline_anthropic(
             niche, topic, n_sections, words_per_section, model, api_key_env,
-            language, base_url,
+            language, base_url, perspective=perspective,
         )
 
     parts: list[str] = []
@@ -129,12 +133,12 @@ def _generate_long(
         if provider == "openai":
             section = llm.generate_section_openai(
                 i, n_sections, heading, tail, words_per_section, niche, topic,
-                model, api_key_env, language, base_url, seed=section_seed,
+                model, api_key_env, language, base_url, seed=section_seed, perspective=perspective,
             )
         else:
             section = llm.generate_section_anthropic(
                 i, n_sections, heading, tail, words_per_section, niche, topic,
-                model, api_key_env, language, base_url,
+                model, api_key_env, language, base_url, perspective=perspective,
             )
         section = clean_text(section)
         if not section:

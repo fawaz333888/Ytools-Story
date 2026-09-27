@@ -16,12 +16,36 @@ NICHE_PROMPTS = {
 }
 
 
-def _system_prompt(niche: str, topic: str, minutes: int, language: str = "id") -> str:
+PERSPECTIVE_LINES = {
+    "first_person": (
+        "Gunakan narasi orang pertama (AKU): pencerita menceritakan dirinya sendiri, "
+        "sudut pandang tokoh utama."
+    ),
+    "second_person": (
+        "Gunakan narasi orang kedua (KAMU): cerita seakan menyindir langsung ke pembaca/"
+        "penonton, efektif untuk ketegangan."
+    ),
+    "third_person": (
+        "Gunakan narasi orang ketiga terbatas (DIA atau nama tokoh): pencerita menceritakan "
+        "orang lain, fokus batin satu tokoh."
+    ),
+    "omniscient": (
+        "Gunakan narator serba tahu: bebas berpindah sudut pandang antar tokoh sesuai kebutuhan."
+    ),
+}
+
+
+def _perspective_line(perspective: str = "") -> str:
+    return PERSPECTIVE_LINES.get(perspective or "third_person", PERSPECTIVE_LINES["third_person"])
+
+
+def _system_prompt(niche: str, topic: str, minutes: int, language: str = "id", perspective: str = "") -> str:
     base = NICHE_PROMPTS.get(niche, NICHE_PROMPTS["custom"])
     lang_name = "Bahasa Indonesia" if language == "id" else "English"
     topic_line = f" Tema spesifik: {topic}." if topic.strip() else ""
     return (
         f"Tulis {base} dalam {lang_name}.{topic_line}\n"
+        f"{_perspective_line(perspective)}\n"
         f"Target durasi narasi sekitar {minutes} menit (sekitar {minutes * 130} kata).\n"
         "Aturan:\n"
         "- Tulis dalam paragraf narasi murni (bukan dialog skrip, tidak ada label adegan).\n"
@@ -58,12 +82,13 @@ def _with_retry(fn, attempts: int = 3):
     raise RuntimeError("unreachable") from last
 
 
-def _outline_prompt(niche: str, topic: str, n_sections: int, words_per_section: int, language: str = "id") -> str:
+def _outline_prompt(niche: str, topic: str, n_sections: int, words_per_section: int, language: str = "id", perspective: str = "") -> str:
     lang_name = "Bahasa Indonesia" if language == "id" else "English"
     base = NICHE_PROMPTS.get(niche, NICHE_PROMPTS["custom"])
     topic_line = f" Tema spesifik: {topic}." if topic.strip() else ""
     return (
         f"Kamu akan menulis {base} dalam {lang_name}.{topic_line}\n"
+        f"{_perspective_line(perspective)}\n"
         f"Cerita ini dibagi menjadi tepat {n_sections} bagian, masing-masing sekitar "
         f"{int(words_per_section)} kata (~5 menit narasi).\n"
         "Aturan:\n"
@@ -94,11 +119,12 @@ def _parse_outline(text: str, n_sections: int) -> list[str]:
     return lines
 
 
-def _section_prompt(niche: str, language: str = "id") -> str:
+def _section_prompt(niche: str, language: str = "id", perspective: str = "") -> str:
     lang_name = "Bahasa Indonesia" if language == "id" else "English"
     base = NICHE_PROMPTS.get(niche, NICHE_PROMPTS["custom"])
     return (
         f"Lanjutkan menulis {base} dalam {lang_name}, sebagai narasi YouTube faceless.\n"
+        f"{_perspective_line(perspective)}\n"
         "Aturan:\n"
         "- Tulis HANYA paragraf narasi bagian ini (sesuai kerangka yang diberikan).\n"
         "- Jangan ulangi bagian sebelumnya, jangan rangkum, jangan tulis heading/judul bagian.\n"
@@ -120,6 +146,7 @@ def generate_openai(
     user_prompt: str = "",
     max_tokens: int = 0,
     seed: int | None = None,
+    perspective: str = "",
 ) -> str:
     from openai import OpenAI
 
@@ -127,7 +154,7 @@ def generate_openai(
     if not key:
         raise RuntimeError(f"env {api_key_env} not set; cannot use openai provider")
     client = OpenAI(api_key=key, base_url=base_url or None)
-    sys_msg = system_prompt or _system_prompt(niche, topic, minutes, language)
+    sys_msg = system_prompt or _system_prompt(niche, topic, minutes, language, perspective)
     usr_msg = user_prompt or "Tulis ceritanya sekarang."
     kwargs: dict = {}
     if max_tokens:
@@ -160,6 +187,7 @@ def generate_anthropic(
     user_prompt: str = "",
     max_tokens: int = 0,
     seed: int | None = None,
+    perspective: str = "",
 ) -> str:
     import anthropic
 
@@ -167,7 +195,7 @@ def generate_anthropic(
     if not key:
         raise RuntimeError(f"env {api_key_env} not set; cannot use anthropic provider")
     client = anthropic.Anthropic(api_key=key, base_url=base_url or None)
-    sys_msg = system_prompt or _system_prompt(niche, topic, minutes, language)
+    sys_msg = system_prompt or _system_prompt(niche, topic, minutes, language, perspective)
     usr_msg = user_prompt or "Tulis ceritanya sekarang."
     resp = _with_retry(
         lambda: client.messages.create(
@@ -253,10 +281,11 @@ def generate_outline_openai(
     language: str = "id",
     base_url: str = "",
     seed: int | None = None,
+    perspective: str = "",
 ) -> list[str]:
     text = generate_openai(
         niche, topic, 0, model, api_key_env, language, base_url,
-        system_prompt=_outline_prompt(niche, topic, n_sections, words_per_section, language),
+        system_prompt=_outline_prompt(niche, topic, n_sections, words_per_section, language, perspective),
         user_prompt=f"Cetak tepat {n_sections} baris kerangka sekarang.",
         max_tokens=max(300, int(n_sections * 25)),
         seed=seed,
@@ -277,6 +306,7 @@ def generate_section_openai(
     language: str = "id",
     base_url: str = "",
     seed: int | None = None,
+    perspective: str = "",
 ) -> str:
     tail = (prev_tail or "").strip()
     user = (
@@ -287,7 +317,7 @@ def generate_section_openai(
     )
     return generate_openai(
         niche, topic, 0, model, api_key_env, language, base_url,
-        system_prompt=_section_prompt(niche, language),
+        system_prompt=_section_prompt(niche, language, perspective),
         user_prompt=user,
         max_tokens=int(target_words * 1.6) + 250,
         seed=seed,
@@ -304,10 +334,11 @@ def generate_outline_anthropic(
     language: str = "id",
     base_url: str = "",
     seed: int | None = None,
+    perspective: str = "",
 ) -> list[str]:
     text = generate_anthropic(
         niche, topic, 0, model, api_key_env, language, base_url,
-        system_prompt=_outline_prompt(niche, topic, n_sections, words_per_section, language),
+        system_prompt=_outline_prompt(niche, topic, n_sections, words_per_section, language, perspective),
         user_prompt=f"Cetak tepat {n_sections} baris kerangka sekarang.",
         max_tokens=max(300, int(n_sections * 25)),
     )
@@ -327,6 +358,7 @@ def generate_section_anthropic(
     language: str = "id",
     base_url: str = "",
     seed: int | None = None,
+    perspective: str = "",
 ) -> str:
     tail = (prev_tail or "").strip()
     user = (
@@ -337,7 +369,7 @@ def generate_section_anthropic(
     )
     return generate_anthropic(
         niche, topic, 0, model, api_key_env, language, base_url,
-        system_prompt=_section_prompt(niche, language),
+        system_prompt=_section_prompt(niche, language, perspective),
         user_prompt=user,
         max_tokens=int(target_words * 1.6) + 250,
     )

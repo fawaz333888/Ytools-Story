@@ -14,6 +14,7 @@ DEFAULTS: dict[str, Any] = {
         "niche": "horror",           # horror | motivation | education | drama | custom
         "topic": "",
         "language": "id",            # id | en
+        "perspective": "third_person",  # first_person | second_person | third_person | omniscient
         "length_minutes": 3,
         "section_minutes": 5,   # ukuran bagian untuk story > 8 menit (outline mode)
         "model": "gpt-4o-mini",
@@ -139,6 +140,10 @@ class Config:
         problems: list[str] = []
         if self.get("story.provider") not in {"manual", "openai", "anthropic"}:
             problems.append("story.provider must be manual|openai|anthropic")
+        if self.get("story.perspective") not in {"first_person", "second_person", "third_person", "omniscient"}:
+            problems.append(
+                "story.perspective must be first_person|second_person|third_person|omniscient"
+            )
         if self.get("story.provider") == "openai" and not os.environ.get(
             self.get("story.api_key_env"), ""
         ):

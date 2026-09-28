@@ -22,7 +22,39 @@ MIN_TOTAL_FRACTION = 0.6
 # more slack or a story-closing trim would eat the twist.
 SECTION_MAX_WORDS_FRACTION = 1.5
 LAST_SECTION_MAX_WORDS_FRACTION = 2.0
+SECTION_MIN_WORDS_FRACTION = 0.8
 TOPIC_MAX_ATTEMPTS = 2
+
+# Last generation's per-section diagnostics, so callers (e.g. the Colab cell)
+# can report pass/fail instead of guessing from the final text alone.
+SECTION_REPORT: list[dict] = []
+_SENTENCE_END = ".!?…\"'”’"
+
+
+def _ends_mid_sentence(text: str) -> bool:
+    t = (text or "").strip().rstrip('"“”').strip()
+    return bool(t) and t[-1] not in _SENTENCE_END
+
+
+def _record_section(idx: int, total: int, section: str, target: float, trimmed: bool) -> None:
+    max_frac = LAST_SECTION_MAX_WORDS_FRACTION if idx == total else SECTION_MAX_WORDS_FRACTION
+    words = len(section.split())
+    SECTION_REPORT.append(
+        {
+            "idx": idx,
+            "total": total,
+            "words": words,
+            "target": int(target),
+            "trimmed": trimmed,
+            "complete": not _ends_mid_sentence(section),
+            "too_short": words < SECTION_MIN_WORDS_FRACTION * target,
+            "too_long": words > max_frac * target,
+        }
+    )
+
+
+def section_report() -> list[dict]:
+    return SECTION_REPORT
 
 # Default edge-tts voice per language when none is configured.
 DEFAULT_VOICE = {
@@ -63,6 +95,7 @@ def generate(
             "(atau config story.provider=openai|anthropic)"
         )
     elif provider in ("openai", "anthropic"):
+        SECTION_REPORT.clear()
         text = _generate_with_topic_check(
             provider, niche, topic, minutes, language, model, api_key_env,
             base_url, seed, section_minutes or DEFAULT_SECTION_MINUTES, perspective,
@@ -95,14 +128,17 @@ def _call_single(
     perspective: str = "",
 ) -> str:
     if provider == "openai":
-        return llm.generate_story_openai(
+        text = llm.generate_story_openai(
             niche, topic, minutes, model, api_key_env, language, base_url,
             seed if isinstance(seed, int) else None, perspective,
         )
-    return llm.generate_story_anthropic(
-        niche, topic, minutes, model, api_key_env, language, base_url,
-        seed if isinstance(seed, int) else None, perspective,
-    )
+    else:
+        text = llm.generate_story_anthropic(
+            niche, topic, minutes, model, api_key_env, language, base_url,
+            seed if isinstance(seed, int) else None, perspective,
+        )
+    _record_section(1, 1, text, minutes * WORDS_PER_MINUTE, False)
+    return text
 
 
 def _generate_with_topic_check(
@@ -204,10 +240,12 @@ def _generate_long(
             raise RuntimeError(
                 f"section {i + 1}/{n_sections} kosong; story gagal di bagian ini"
             )
+        before = len(section.split())
         section = _trim_section(
             section, words_per_section,
             LAST_SECTION_MAX_WORDS_FRACTION if i == n_sections - 1 else SECTION_MAX_WORDS_FRACTION,
         )
+        _record_section(i + 1, n_sections, section, words_per_section, len(section.split()) < before)
         parts.append(section)
 
     return "\n\n".join(parts)

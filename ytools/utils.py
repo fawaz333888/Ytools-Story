@@ -48,6 +48,35 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
+def join_continuation(prev: str, cont: str) -> str:
+    """Append a continuation text to `prev`, removing an echoed overlap.
+
+    Models often repeat the last words of the context at the start of their
+    continuation; drop the longest word-level overlap so the join is clean.
+    The separator respects whether `prev` ended mid-sentence.
+    """
+    prev = (prev or "").rstrip()
+    cont = (cont or "").strip()
+    if not cont:
+        return prev
+    p_words = prev.split()
+    c_words = cont.split()
+    max_k = min(len(p_words), len(c_words), 12)
+
+    def key(w: str) -> str:
+        return re.sub(r"[^\w]", "", w.lower())
+
+    for n in range(max_k, 0, -1):
+        if [key(w) for w in p_words[-n:]] == [key(w) for w in c_words[:n]]:
+            cont = " ".join(c_words[n:]).strip()
+            break
+    if not cont:
+        return prev
+    tail = prev.rstrip("\"'”").rstrip()
+    sep = "\n\n" if tail and tail[-1] in ".!?…" else " "
+    return prev + sep + cont
+
+
 def split_sentences(text: str, min_len: int = 1) -> list[str]:
     """Split into sentences. Keeps punctuation. Handles '...' and abbreviations lightly."""
     text = clean_text(text)

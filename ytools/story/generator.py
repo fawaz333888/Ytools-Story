@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from ..utils import clean_text
+from ..utils import clean_text, split_sentences
 from . import llm
 
 VALID_NICHES = {"horror", "motivation", "education", "drama", "custom"}
@@ -17,6 +17,12 @@ DEFAULT_SECTION_MINUTES = 5
 WORDS_PER_MINUTE = 130
 TAIL_WORDS = 500
 MIN_TOTAL_FRACTION = 0.6
+# Per-section pacing guard: trim sections that overshoot, at a sentence
+# boundary (never mid-sentence). The last section keeps the ending, so it gets
+# more slack or a story-closing trim would eat the twist.
+SECTION_MAX_WORDS_FRACTION = 1.5
+LAST_SECTION_MAX_WORDS_FRACTION = 2.0
+TOPIC_MAX_ATTEMPTS = 2
 
 # Default edge-tts voice per language when none is configured.
 DEFAULT_VOICE = {
@@ -57,16 +63,10 @@ def generate(
             "(atau config story.provider=openai|anthropic)"
         )
     elif provider in ("openai", "anthropic"):
-        if minutes > LONG_MODE_THRESHOLD:
-            text = _generate_long(
-                provider, niche, topic, minutes, language, model, api_key_env,
-                base_url, seed, section_minutes or DEFAULT_SECTION_MINUTES, perspective,
-            )
-        else:
-            text = _call_single(
-                provider, niche, topic, minutes, language, model, api_key_env, base_url, seed,
-                perspective,
-            )
+        text = _generate_with_topic_check(
+            provider, niche, topic, minutes, language, model, api_key_env,
+            base_url, seed, section_minutes or DEFAULT_SECTION_MINUTES, perspective,
+        )
     else:
         raise ValueError(f"unknown provider {provider!r}; valid: manual|openai|anthropic")
 
@@ -95,8 +95,67 @@ def _call_single(
     perspective: str = "",
 ) -> str:
     if provider == "openai":
-        return llm.generate_openai(niche, topic, minutes, model, api_key_env, language, base_url, seed=seed, perspective=perspective)
-    return llm.generate_anthropic(niche, topic, minutes, model, api_key_env, language, base_url, perspective=perspective)
+        return llm.generate_story_openai(
+            niche, topic, minutes, model, api_key_env, language, base_url,
+            seed if isinstance(seed, int) else None, perspective,
+        )
+    return llm.generate_story_anthropic(
+        niche, topic, minutes, model, api_key_env, language, base_url,
+        seed if isinstance(seed, int) else None, perspective,
+    )
+
+
+def _generate_with_topic_check(
+    provider: str,
+    niche: str,
+    topic: str,
+    minutes: int,
+    language: str,
+    model: str,
+    api_key_env: str,
+    base_url: str,
+    seed: int | str | None,
+    section_minutes: int,
+    perspective: str = "",
+) -> str:
+    """Generate, regenerating once if the story drifts off-topic."""
+    for attempt in range(TOPIC_MAX_ATTEMPTS):
+        if minutes > LONG_MODE_THRESHOLD:
+            text = _generate_long(
+                provider, niche, topic, minutes, language, model, api_key_env,
+                base_url, seed, section_minutes, perspective,
+            )
+        else:
+            text = _call_single(
+                provider, niche, topic, minutes, language, model, api_key_env,
+                base_url, seed, perspective,
+            )
+        if not topic.strip() or llm.topic_relevant(text, topic):
+            return text
+    raise RuntimeError(
+        f"story tidak relevan dengan topik {topic!r} setelah {TOPIC_MAX_ATTEMPTS} "
+        "percobaan; ganti topik, perjelas, atau pakai model yang lebih capable."
+    )
+
+
+def _trim_section(section: str, target_words: float, max_fraction: float) -> str:
+    """Trim an oversized section at a sentence boundary; never mid-sentence."""
+    max_words = int(max_fraction * target_words)
+    if len(section.split()) <= max_words:
+        return section
+    sentences = split_sentences(section)
+    out: list[str] = []
+    n = 0
+    for s in sentences:
+        w = len(s.split())
+        if out and n + w > max_words:
+            break
+        out.append(s)
+        n += w
+    if not out:
+        out = sentences[:1]
+    text = " ".join(out).strip()
+    return text or section
 
 
 def _generate_long(
@@ -145,6 +204,10 @@ def _generate_long(
             raise RuntimeError(
                 f"section {i + 1}/{n_sections} kosong; story gagal di bagian ini"
             )
+        section = _trim_section(
+            section, words_per_section,
+            LAST_SECTION_MAX_WORDS_FRACTION if i == n_sections - 1 else SECTION_MAX_WORDS_FRACTION,
+        )
         parts.append(section)
 
     return "\n\n".join(parts)
@@ -158,6 +221,7 @@ def generate_title(
     model: str = "gpt-4o-mini",
     api_key_env: str = "OPENAI_API_KEY",
     base_url: str = "",
+    topic: str = "",
 ) -> str:
     """Generate a YouTube title for an already-generated story.
 
@@ -165,9 +229,9 @@ def generate_title(
     the context, which keeps the title accurate to the narration.
     """
     if provider == "openai":
-        title = llm.generate_title_openai(story, niche, model, api_key_env, language, base_url)
+        title = llm.generate_title_openai(story, niche, model, api_key_env, language, base_url, topic)
     elif provider == "anthropic":
-        title = llm.generate_title_anthropic(story, niche, model, api_key_env, language, base_url)
+        title = llm.generate_title_anthropic(story, niche, model, api_key_env, language, base_url, topic)
     else:
         raise ValueError(f"generate_title needs llm provider, got {provider!r}")
 

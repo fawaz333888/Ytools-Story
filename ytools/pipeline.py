@@ -237,6 +237,7 @@ class Pipeline:
                     model=self.cfg.get("story.model"),
                     api_key_env=self.cfg.get("story.api_key_env"),
                     base_url=self.cfg.get("story.base_url", "") or "",
+                    topic=self.cfg.get("story.topic", "") or "",
                 )
             a.title = title
             card_opacity = self.cfg.get("overlays.card.opacity", 1.0)

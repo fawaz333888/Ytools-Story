@@ -328,8 +328,8 @@ CELLS: list[dict] = [
             "            _tags.append('dipangkas')\n",
             "        _status = 'OK' if not _tags else 'WARN: ' + ', '.join(_tags)\n",
             "        _problems += bool(_tags)\n",
-            "        print(f\\\"  Section {_s['idx']:>2}/{_s['total']}: {_s['words']:>4} kata \"\n",
-            "              f\\\"(target {_s['target']}) {_status}\\\")\n",
+            "        _si, _st, _sw, _star = _s['idx'], _s['total'], _s['words'], _s['target']\n",
+            "        print(f'  Section {_si:>2}/{_st}: {_sw:>4} kata (target {_star}) {_status}')\n",
             "    _tw = sum(s['words'] for s in _report)\n",
             "    _tt = sum(s['target'] for s in _report)\n",
             "    print(f'TOTAL: {_tw}/{_tt} kata ({_tw / max(1, _tt) * 100:.0f}%)')\n",
@@ -495,9 +495,34 @@ def build(cells: list[dict]) -> dict:
 def main() -> None:
     here = os.path.dirname(os.path.abspath(__file__))
     out = os.path.join(here, "Ytools-Story.ipynb")
+    nb = build(CELLS)
     with open(out, "w", encoding="utf-8") as fh:
-        json.dump(build(CELLS), fh, indent=1, ensure_ascii=False)
+        json.dump(nb, fh, indent=1, ensure_ascii=False)
     print("wrote", out)
+
+    # Never ship a notebook with a broken cell: every code cell must compile.
+    bad = 0
+    for i, cell in enumerate(nb["cells"]):
+        if cell.get("cell_type") != "code":
+            continue
+        src = "".join(cell.get("source", []))
+        if not src.strip():
+            continue
+        # IPython magics/shell (!pip, %cd) are not valid Python; strip to test
+        # the rest of the cell so real syntax errors still surface.
+        body = "\n".join(
+            ln for ln in src.splitlines() if not ln.lstrip().startswith(("!", "%"))
+        )
+        if not body.strip():
+            continue
+        try:
+            compile(body, f"cell{i}", "exec")
+        except SyntaxError as exc:
+            bad += 1
+            print(f"SYNTAX ERROR in cell {i}: {exc}")
+            print(src)
+    if bad:
+        raise SystemExit(f"{bad} cell(s) failed to compile")
 
 
 if __name__ == "__main__":

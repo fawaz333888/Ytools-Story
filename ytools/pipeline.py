@@ -83,6 +83,8 @@ class Pipeline:
                 api_key_env=self.cfg.get("story.api_key_env"),
                 base_url=self.cfg.get("story.base_url", "") or "",
                 seed=self.cfg.get("story.seed"),
+                section_minutes=self.cfg.get("story.section_minutes", 5) or 5,
+                perspective=self.cfg.get("story.perspective", "") or "",
             )
         a.script_path = os.path.join(self.workdir, "script.txt")
         with open(a.script_path, "w", encoding="utf-8") as fh:

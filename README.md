@@ -6,7 +6,7 @@ YouTube faceless automation: loop footage + overlays + TTS narration, bilingual 
 
 ```bash
 pip install -r requirements.txt
-python -m ytools run --footage your_video.mp4 --niche horror --language id --minutes 3
+python -m ytools run --footage your_video.mp4 --script my_story.txt
 ```
 
 Output: `output/video.mp4` (720p, H.264 + AAC, looped to narration length).
@@ -37,7 +37,7 @@ Provider `openai` juga mendukung endpoint **OpenAI-compatible** (OpenRouter, Gro
 
 ## Colab
 
-Run `colab/Ytools-V1.ipynb` (GPU runtime recommended). All cells validated via `jupyter nbconvert --execute`. Source of the notebook is `colab/build_notebook.py` — regenerate with `python colab/build_notebook.py` after edits.
+Run `colab/Ytools-Story.ipynb` (GPU runtime recommended). All cells validated via `jupyter nbconvert --execute`. Source of the notebook is `colab/build_notebook.py` — regenerate with `python colab/build_notebook.py` after edits.
 
 Notes:
 - Colab free session: ~12h max, idle disconnect ~90 min — save to Drive before stopping.

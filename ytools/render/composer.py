@@ -415,29 +415,38 @@ class Composer:
         if key in self._nvenc_cache:
             return self._nvenc_cache[key]
         works = False
+        reason = ""
         try:
             if self.ff.supports_nvenc():
                 import tempfile
 
                 with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
                     probe_path = tmp.name
-                self.ff.run(
+                # 256x256, not 64x64: NVENC rejects frames below its minimum
+                # dimension with "invalid param (8)", which looked like a dead
+                # GPU on Colab T4s even though the encoder was perfectly fine.
+                proc = self.ff.run(
                     [
                         self.ff.ffmpeg, "-y", "-v", "error", "-hide_banner",
-                        "-f", "lavfi", "-i", "color=c=black:s=64x64:d=0.1:r=10",
+                        "-f", "lavfi", "-i", "color=c=black:s=256x256:d=0.1:r=10",
                         "-c:v", "h264_nvenc", "-f", "mp4", probe_path,
                     ],
                     check=False,
                 )
                 works = os.path.isfile(probe_path) and os.path.getsize(probe_path) > 0
+                if not works:
+                    reason = (proc.stderr or "").strip().splitlines()
+                    reason = reason[-1] if reason else "no stderr"
                 try:
                     os.remove(probe_path)
                 except OSError:
                     pass
-        except Exception:
+        except Exception as exc:
             works = False
+            reason = f"{type(exc).__name__}: {exc}"
         self._nvenc_cache[key] = works
-        print(f"[composer] h264_nvenc usable: {works}", flush=True)
+        detail = f" ({reason})" if not works and reason else ""
+        print(f"[composer] h264_nvenc usable: {works}{detail}", flush=True)
         return works
 
     def render(

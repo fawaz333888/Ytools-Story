@@ -41,6 +41,7 @@ Run `colab/Ytools-Story.ipynb` (GPU runtime recommended). All cells validated vi
 
 Notes:
 - Colab free session: ~12h max, idle disconnect ~90 min — save to Drive before stopping.
+- **Render lambat?** Cell 2 otomatis memakai system ffmpeg (NVENC-capable) kalau ada; pastikan `nvenc flag: True`. `imageio-ffmpeg` bundle tidak punya nvenc, jadi tanpa itu encode jalan di CPU (~5x lebih lambat). Untuk iterasi: `encode_preset=faster`/`veryfast`, 480p, fps 24.
 - Provider `manual` butuh file `--script`; gunakan LLM untuk skrip panjang.
 - Footage ≥30s recommended; shorter loops get flagged as repetitive content.
 

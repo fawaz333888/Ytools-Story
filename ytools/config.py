@@ -34,6 +34,7 @@ DEFAULTS: dict[str, Any] = {
         "fps": 30,
         "motion": "slow_drift",      # none | slow_drift | slow_zoom
         "motion_intensity": 1.0,     # 0..2 multiplier
+        "motion_scale": "bicubic",   # bicubic | lanczos | fast_bilinear (upscale quality vs speed)
     },
     "overlays": {
         "watermark": {
@@ -164,6 +165,9 @@ class Config:
         mi = self.get("video.motion_intensity")
         if not isinstance(mi, (int, float)) or not (0 <= float(mi) <= 3):
             problems.append(f"video.motion_intensity={mi} must be a number in 0..3")
+        ms = self.get("video.motion_scale")
+        if ms not in {"bicubic", "lanczos", "fast_bilinear"}:
+            problems.append(f"video.motion_scale={ms} must be bicubic|lanczos|fast_bilinear")
         if self.get("overlays.spectrum.enabled"):
             if self.get("overlays.spectrum.style") not in {"cqt", "spectrum", "waves", "vectorscope"}:
                 problems.append(

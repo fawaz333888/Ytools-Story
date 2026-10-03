@@ -73,6 +73,7 @@ class RenderOpts:
     fps: int = 30
     motion: str = "slow_drift"      # none | slow_drift | slow_zoom
     motion_intensity: float = 1.0   # 0..3 multiplier on pan range + speed
+    motion_scale: str = "bicubic"   # bicubic | lanczos | fast_bilinear (upscale)
     watermark_position: str = "top-right"
     watermark_opacity: float = 0.85
     particles_opacity: float = 1.0
@@ -195,6 +196,10 @@ class Composer:
             # wider. Clamp >0: the period divides by it.
             k = max(0.05, min(opts.motion_intensity, 3.0) if opts.motion_intensity else 1.0)
             drift = opts.motion == "slow_drift"
+            # bicubic is ~2-3x faster than lanczos for a 15% upscale and is
+            # visually indistinguishable on moving footage; expose the choice
+            # so quality-first users can opt back into lanczos.
+            sflag = opts.motion_scale if opts.motion_scale in ("bicubic", "lanczos", "fast_bilinear") else "bicubic"
             if drift:
                 up = 1.0 + 0.15 * k
                 uw, uh = int(W * up), int(H * up)
@@ -203,7 +208,7 @@ class Composer:
                 py = max(30, round(360 / k))
                 x = f"(iw-{W})*(0.5+0.5*sin(n/{px}))"
                 y = f"(ih-{H})*(0.5+0.5*cos(n/{py}))"
-                chain.append(f"scale={uw}:{uh}:flags=lanczos,crop={W}:{H}:x='{x}':y='{y}'")
+                chain.append(f"scale={uw}:{uh}:flags={sflag},crop={W}:{H}:x='{x}':y='{y}'")
             else:
                 # breathing zoom: crop box shrinks/grows around center
                 up = 1.0 + 0.15 * k
@@ -213,9 +218,9 @@ class Composer:
                 w = f"{W}*(1.0+{amp}*(1+sin(n/{per}))/2)"
                 h = f"{H}*(1.0+{amp}*(1+sin(n/{per}))/2)"
                 chain.append(
-                    f"scale={uw}:{uh}:flags=lanczos,"
+                    f"scale={uw}:{uh}:flags={sflag},"
                     f"crop=w='{w}':h='{h}':x='(iw-out_w)/2':y='(ih-out_h)/2',"
-                    f"scale={W}:{H}:flags=lanczos"
+                    f"scale={W}:{H}:flags={sflag}"
                 )
 
         base_label = "[base]"
@@ -359,8 +364,14 @@ class Composer:
         if enc == "h264_nvenc":
             # vbr with -b:v 0 is quality-only and unbounded: particle overlays
             # are high-entropy, so the rate explodes without an explicit cap.
+            # Map the x264 preset names onto nvenc p-levels so the same user
+            # knob works on both encoders (p7 = slowest/best, p1 = fastest).
+            nvenc_preset = {
+                "veryfast": "p3", "faster": "p4", "fast": "p4",
+                "medium": "p5", "slow": "p6",
+            }.get(opts.preset, "p5")
             args += [
-                "-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr",
+                "-c:v", "h264_nvenc", "-preset", nvenc_preset, "-rc", "vbr",
                 "-cq", str(opts.crf + 2), "-b:v", opts.video_bitrate,
                 "-maxrate", opts.video_maxrate, "-bufsize", opts.video_bufsize,
                 "-pix_fmt", "yuv420p",
@@ -432,8 +443,19 @@ class Composer:
     def render(
         self, inputs: RenderInputs, opts: RenderOpts, duration: float
     ) -> RenderResult:
+        import time
+
         args = self.build_args(inputs, opts, duration)
+        t0 = time.time()
         self.ff.run(args)
+        render_t = max(time.time() - t0, 1e-6)
+        # realtime ratio: >1 means we render faster than playback length
+        ratio = duration / render_t if duration > 0 else 0.0
+        print(
+            f"[composer] rendered {duration:.1f}s in {render_t:.0f}s "
+            f"({ratio:.2f}x realtime, encoder args: {args[args.index('-c:v') + 1] if '-c:v' in args else '?'})",
+            flush=True,
+        )
         info = self.ff.probe(inputs.out_path)
         return RenderResult(
             path=inputs.out_path,

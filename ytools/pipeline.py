@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -48,10 +49,12 @@ class Pipeline:
         self.ff = ff or FFRunner()
         self.artifacts = PipelineArtifacts()
         self._stage = on_stage or (lambda msg: None)
+        self._t0 = 0.0
         os.makedirs(workdir, exist_ok=True)
 
     def stage(self, msg: str) -> None:
-        print(f"[pipeline] {msg}", flush=True)
+        elapsed = f" ({time.time() - self._t0:.0f}s)" if self._t0 else ""
+        print(f"[pipeline] {msg}{elapsed}", flush=True)
         self._stage(msg)
 
     def run(
@@ -61,6 +64,7 @@ class Pipeline:
         skip_particles: bool = False,
     ) -> PipelineArtifacts:
         a = self.artifacts
+        self._t0 = time.time()
 
         # 1. script
         if script_path and os.path.isfile(script_path):
@@ -306,6 +310,7 @@ class Pipeline:
             fps=FPS,
             motion=self.cfg.get("video.motion", "slow_drift"),
             motion_intensity=self.cfg.get("video.motion_intensity", 1.0),
+            motion_scale=self.cfg.get("video.motion_scale", "bicubic"),
             watermark_position=self.cfg.get("overlays.watermark.position", "top-right"),
             watermark_opacity=self.cfg.get("overlays.watermark.opacity", 0.85),
             particles_opacity=self.cfg.get("overlays.particles.opacity", 1.0),
